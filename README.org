@@ -1,0 +1,91 @@
+#+title: magit-gh
+#+author: Jonathan Chu
+#+email: me@jonathanchu.is
+
+~magit-gh~ is an Emacs package that integrates the [[https://cli.github.com][GitHub CLI]] (~gh~) into [[https://magit.vc/][Magit]]. It provides a Transient menu interface to list, checkout, and view pull requests directly from Emacs without leaving your workflow.
+
+Features include:
+  - List open pull requests in a dedicated buffer
+  - Checkout a PR branch with a single keystroke
+  - View a PR in the browser
+
+** Requirements
+
+  - Emacs 29.1+
+  - Magit 4.0.0+
+  - Transient 0.5.0+
+  - gh CLI ([[https://cli.github.com][installed separately]], must be authenticated via =gh auth login=)
+
+* Installation
+
+Or with ~use-package~:
+
+#+begin_src emacs-lisp
+(use-package magit-gh
+  :ensure t
+  :after magit)
+#+end_src
+
+* Usage
+
+You can access ~magit-gh~ from the *Magit status menu* by typing ~,~ or ~m-x magit-gh~.
+
+If you don't like the ~,~ key binding to invoke ~magit-gh~, you can set any custom value you want. Note that the variable must be set *before* the package loads:
+
+#+begin_src emacs-lisp
+(use-package magit-gh
+  :ensure t
+  :after magit
+  :init
+  (setq magit-gh-key ";")) ; Example setting key to ";" instead of the default ","
+#+end_src
+
+The Transient menu is organized into Pull Request commands:
+
+#+begin_example
+magit-gh
+└── Pull Requests
+    ├── l  List open PRs
+    ├── c  Checkout PR
+    └── v  View PR in browser
+#+end_example
+
+** PR List Buffer
+
+When you list open PRs (~l~), a dedicated buffer opens showing PR number, title, author, and branch name. The following keybindings are available in this buffer:
+
+| Key     | Action                       |
+|---------+------------------------------|
+| =RET=   | Checkout the PR at point     |
+| =c=     | Checkout the PR at point     |
+| =v=     | Open the PR at point in browser |
+| =g=     | Refresh the PR list          |
+| =q=     | Close the buffer             |
+
+** Customization
+
+| Variable            | Default | Description                              |
+|---------------------+---------+------------------------------------------|
+| =magit-gh-key=      | =,=     | Key to bind ~magit-gh~ in Magit buffers  |
+| =magit-gh-pr-limit= | =30=    | Maximum number of PRs to fetch           |
+
+* Feature Status
+
+  - [X] List open pull requests
+  - [X] Checkout a pull request
+  - [X] View a pull request in the browser
+  - [ ] List closed/merged pull requests
+  - [ ] Create a new pull request
+  - [ ] View PR diff
+  - [ ] View PR checks/status
+  - [ ] Merge a pull request
+  - [ ] Review a pull request
+  - [ ] List and manage issues
+
+* Contributing
+
+Contributions are welcome! If you'd like to help integrate additional ~gh~ CLI commands or improve existing functionality, please open a pull request.
+
+Before submitting a PR, please keep in mind that this package is intended to extend Magit with useful GitHub CLI functionality -- not to duplicate what Magit already provides. If you're unsure whether a command is a good fit, feel free to open an issue to discuss it first.
+
+To report bugs or request features, please use the [[https://github.com/jonathanchu/magit-gh/issues][GitHub issue tracker]].
