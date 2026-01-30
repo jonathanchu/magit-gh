@@ -9,6 +9,18 @@ Features include:
   - Checkout a PR branch with a single keystroke
   - View a PR in the browser
 
+* Why not Forge?
+
+[[https://github.com/magit/forge][Forge]] is a fantastic and comprehensive package for interacting with Git forges from within Magit. If you need deep integration -- tracking issues, managing pull requests, reading and writing comments, all stored locally -- Forge is the right tool. *I would highly recommend Forge over this package if that is your use case*.
+
+~magit-gh~ takes a different approach. It delegates to the [[https://cli.github.com][GitHub CLI]] (~gh~) for all GitHub interaction, which means:
+
+- *No local database* -- Forge maintains a local SQLite database via ~emacsql~, which can be tricky to set up (compiling native modules, resolving binary availability issues). ~magit-gh~ stores nothing locally.
+- *No token management* -- Forge requires a GitHub personal access token stored in your ~authinfo~ file (ideally encrypted with GPG). ~magit-gh~ piggybacks on ~gh auth login~, which you may have already configured.
+- *Minimal dependencies* -- just Magit, Transient, and the ~gh~ CLI.
+
+The trade-off is that ~magit-gh~ is far less featureful than Forge. It's intentionally a lightweight alternative for users who primarily want to list, checkout, and view pull requests without additional setup overhead.
+
 ** Requirements
 
   - Emacs 29.1+
