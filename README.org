@@ -64,6 +64,16 @@ If you don't like the ~,~ key binding to invoke ~magit-gh~, you can set any cust
   (setq magit-gh-key ";")) ; Example setting key to ";" instead of the default ","
 #+end_src
 
+To increase the number of PRs fetched (default 30):
+
+#+begin_src emacs-lisp
+(use-package magit-gh
+  :ensure t
+  :after magit
+  :custom
+  (magit-gh-pr-limit 50))
+#+end_src
+
 The Transient menu is organized into Pull Request commands:
 
 #+begin_example

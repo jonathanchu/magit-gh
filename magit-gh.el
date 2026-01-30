@@ -46,6 +46,14 @@
 ;;     :init
 ;;     (setq magit-gh-key ";"))
 ;;
+;; To increase the number of PRs fetched (default 30):
+;;
+;;   (use-package magit-gh
+;;     :ensure t
+;;     :after magit
+;;     :custom
+;;     (magit-gh-pr-limit 50))
+;;
 ;; Requires: gh must be installed and authenticated.
 ;; Run `gh auth login` to authenticate.
 ;; See: https://cli.github.com
