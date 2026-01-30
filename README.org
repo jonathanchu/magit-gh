@@ -16,6 +16,30 @@ Features include:
   - Transient 0.5.0+
   - gh CLI ([[https://cli.github.com][installed separately]], must be authenticated via =gh auth login=)
 
+** Installing gh CLI
+
+*** macOS
+
+#+begin_src sh
+brew install gh
+#+end_src
+
+*** Linux (Fedora / RHEL / CentOS)
+
+#+begin_src sh
+sudo dnf install gh
+#+end_src
+
+For other operating systems, see the [[https://github.com/cli/cli#installation][official installation instructions]].
+
+*** Authenticate
+
+After installing, authenticate with your GitHub account:
+
+#+begin_src sh
+gh auth login
+#+end_src
+
 * Installation
 
 Or with ~use-package~:
