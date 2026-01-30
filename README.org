@@ -23,7 +23,7 @@ The trade-off is that ~magit-gh~ is far less featureful than Forge. It's intenti
 
 ** Requirements
 
-  - Emacs 29.1+
+  - Emacs 29.1+ (may work on older versions, this minimum version is what I've tested at least)
   - Magit 4.0.0+
   - Transient 0.5.0+
   - gh CLI ([[https://cli.github.com][installed separately]], must be authenticated via =gh auth login=)
