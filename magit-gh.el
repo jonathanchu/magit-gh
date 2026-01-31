@@ -163,7 +163,7 @@ Set this variable before loading the package to use a custom key."
 (defun magit-gh--check-gh ()
   "Ensure the gh CLI is available."
   (unless (executable-find "gh")
-    (user-error "gh not found; install from https://cli.github.com")))
+    (user-error "`gh' not found; install from https://cli.github.com")))
 
 (defun magit-gh--fetch-prs ()
   "Fetch open PRs as a list of alists via gh CLI."
@@ -183,7 +183,7 @@ Set this variable before loading the package to use a custom key."
 
 (defun magit-gh--checkout-pr (number)
   "Checkout PR by NUMBER using gh CLI.
-On success, closes the PR list buffer and opens magit-status
+On success, closes the PR list buffer and opens `magit-status'
 so the branch change is immediately visible."
   (let ((default-directory (magit-gh--repo-dir)))
     (message "Checking out PR #%d..." number)
@@ -277,7 +277,7 @@ so the branch change is immediately visible."
     (pop-to-buffer buf)))
 
 (defun magit-gh-pr-checkout ()
-  "Select and checkout a PR using completing-read."
+  "Select and checkout a PR using `completing-read'."
   (interactive)
   (let* ((prs (magit-gh--fetch-prs))
          (choices (magit-gh--pr-choices prs))
