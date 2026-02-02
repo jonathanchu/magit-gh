@@ -299,7 +299,7 @@ so the branch change is immediately visible."
 
 ;;; Integration with Magit
 
-(transient-append-suffix 'magit-dispatch "/"
+(transient-append-suffix 'magit-dispatch "!"
   `(,magit-gh-key "GitHub" magit-gh))
 
 (define-key magit-mode-map (kbd magit-gh-key) #'magit-gh)
