@@ -108,6 +108,10 @@ When you list open PRs (~l~), a dedicated buffer opens showing PR number, title,
 | =g=     | Refresh the PR list          |
 | =q=     | Close the buffer             |
 
+** Demo
+
+[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260203_magit_gh_demo.gif]]
+
 ** Customization
 
 | Variable            | Default | Description                              |
