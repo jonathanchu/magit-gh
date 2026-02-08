@@ -56,6 +56,10 @@ gh auth login
 
 * Installation
 
+Install from MELPA:
+
+=M-x package-install RET magit-gh RET=
+
 Or with ~use-package~:
 
 #+begin_src emacs-lisp
