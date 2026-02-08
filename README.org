@@ -2,6 +2,8 @@
 #+author: Jonathan Chu
 #+email: me@jonathanchu.is
 
+[[https://melpa.org/#/magit-gh][https://melpa.org/packages/magit-gh-badge.svg]]
+
 ~magit-gh~ is an Emacs package that integrates the [[https://cli.github.com][GitHub CLI]] (~gh~) into [[https://magit.vc/][Magit]]. It provides a Transient menu interface to list, checkout, and view pull requests directly from Emacs without leaving your workflow.
 
 Features include:
