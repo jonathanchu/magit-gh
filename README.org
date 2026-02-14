@@ -7,7 +7,9 @@
 ~magit-gh~ is an Emacs package that integrates the [[https://cli.github.com][GitHub CLI]] (~gh~) into [[https://magit.vc/][Magit]]. It provides a Transient menu interface to list, checkout, and view pull requests directly from Emacs without leaving your workflow.
 
 Features include:
-  - List open pull requests in a dedicated buffer
+  - List open pull requests in a dedicated buffer with review status
+  - PR status dashboard showing PRs you created and PRs awaiting your review
+  - View a PR diff in a dedicated buffer
   - Checkout a PR branch with a single keystroke
   - View a PR in the browser
 
@@ -98,21 +100,37 @@ The Transient menu is organized into Pull Request commands:
 magit-gh
 └── Pull Requests
     ├── l  List open PRs
+    ├── s  PR status
     ├── c  Checkout PR
+    ├── d  Diff PR
     └── v  View PR in browser
 #+end_example
 
 ** PR List Buffer
 
-When you list open PRs (~l~), a dedicated buffer opens showing PR number, title, author, and branch name. The following keybindings are available in this buffer:
+When you list open PRs (~l~), a dedicated buffer opens showing PR number, title, author, review status, and branch name. The following keybindings are available in this buffer:
 
-| Key     | Action                       |
-|---------+------------------------------|
-| =RET=   | Checkout the PR at point     |
-| =c=     | Checkout the PR at point     |
+| Key     | Action                          |
+|---------+---------------------------------|
+| =RET=   | Checkout the PR at point        |
+| =c=     | Checkout the PR at point        |
+| =d=     | View the diff for the PR at point |
 | =v=     | Open the PR at point in browser |
-| =g=     | Refresh the PR list          |
-| =q=     | Close the buffer             |
+| =g=     | Refresh the PR list             |
+| =q=     | Close the buffer                |
+
+** PR Status Dashboard
+
+The status dashboard (~s~) shows a personal overview of your PRs, mirroring =gh pr status=. It displays two sections: PRs you created and PRs awaiting your review. The following keybindings are available in this buffer:
+
+| Key     | Action                          |
+|---------+---------------------------------|
+| =RET=   | Checkout the PR at point        |
+| =c=     | Checkout the PR at point        |
+| =d=     | View the diff for the PR at point |
+| =v=     | Open the PR at point in browser |
+| =g=     | Refresh the status dashboard    |
+| =q=     | Close the buffer                |
 
 ** Demo
 
@@ -130,10 +148,10 @@ When you list open PRs (~l~), a dedicated buffer opens showing PR number, title,
   - [X] List open pull requests
   - [X] Checkout a pull request
   - [X] View a pull request in the browser
+  - [X] View PR diff
+  - [X] View PR checks/status
   - [ ] List closed/merged pull requests
   - [ ] Create a new pull request
-  - [ ] View PR diff
-  - [ ] View PR checks/status
   - [ ] Merge a pull request
   - [ ] Review a pull request
   - [ ] List and manage issues
