@@ -134,7 +134,7 @@ The status dashboard (~s~) shows a personal overview of your PRs, mirroring =gh 
 
 ** Demo
 
-[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260203_magit_gh_demo.gif]]
+[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260214_magit_gh_demo.gif]]
 
 ** Customization
 
