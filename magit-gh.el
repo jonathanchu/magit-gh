@@ -64,6 +64,7 @@
 (require 'magit)
 (require 'transient)
 (require 'json)
+(require 'diff-mode)
 
 ;;; Custom Variables
 
@@ -90,7 +91,9 @@ Set this variable before loading the package to use a custom key."
   "GitHub CLI commands."
   ["Pull Requests"
    ("l" "List open PRs" magit-gh-pr-list)
+   ("s" "PR status" magit-gh-pr-status)
    ("c" "Checkout PR" magit-gh-pr-checkout)
+   ("d" "Diff PR" magit-gh-pr-diff)
    ("v" "View PR in browser" magit-gh-pr-view)])
 
 ;;; PR List Buffer Mode
@@ -103,6 +106,7 @@ Set this variable before loading the package to use a custom key."
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'magit-gh-pr-list-checkout)
     (define-key map (kbd "c") #'magit-gh-pr-list-checkout)
+    (define-key map (kbd "d") #'magit-gh-pr-list-diff)
     (define-key map (kbd "v") #'magit-gh-pr-list-browse)
     (define-key map (kbd "g") #'magit-gh-pr-list-refresh)
     map)
@@ -121,6 +125,7 @@ Set this variable before loading the package to use a custom key."
               (substitute-command-keys
                "\\<magit-gh-pr-list-mode-map>\
  \\[magit-gh-pr-list-checkout]:checkout  \
+\\[magit-gh-pr-list-diff]:diff  \
 \\[magit-gh-pr-list-browse]:browse  \
 \\[magit-gh-pr-list-refresh]:refresh  \
 \\[quit-window]:quit"))
@@ -148,6 +153,21 @@ Set this variable before loading the package to use a custom key."
   "Face for PR branch names in the PR list."
   :group 'magit-gh)
 
+(defface magit-gh-pr-review-approved
+  '((t :inherit success))
+  "Face for approved review status in the PR list."
+  :group 'magit-gh)
+
+(defface magit-gh-pr-review-changes-requested
+  '((t :inherit error))
+  "Face for changes-requested review status in the PR list."
+  :group 'magit-gh)
+
+(defface magit-gh-pr-review-pending
+  '((t :inherit warning))
+  "Face for review-required status in the PR list."
+  :group 'magit-gh)
+
 (defface magit-gh-header
   '((t :inherit magit-section-heading))
   "Face for the header line in the PR list."
@@ -169,13 +189,26 @@ Set this variable before loading the package to use a custom key."
   "Fetch open PRs as a list of alists via gh CLI."
   (magit-gh--check-gh)
   (let* ((default-directory (magit-gh--repo-dir))
-         (cmd (format "gh pr list --state open --json number,title,author,headRefName --limit %d"
+         (cmd (format "gh pr list --state open --json number,title,author,headRefName,reviewDecision --limit %d"
                       magit-gh-pr-limit))
          (output (shell-command-to-string cmd))
          (trimmed (string-trim output)))
     (if (string-prefix-p "[" trimmed)
         (json-parse-string trimmed :array-type 'list :object-type 'alist)
       (user-error "Failed to fetch PRs: %s" trimmed))))
+
+(defun magit-gh--fetch-pr-status ()
+  "Fetch PR status via gh CLI.
+Returns an alist with `createdBy' and `needsReview' keys,
+each containing a list of PR alists."
+  (magit-gh--check-gh)
+  (let* ((default-directory (magit-gh--repo-dir))
+         (cmd "gh pr status --json number,title,author,headRefName,reviewDecision")
+         (output (shell-command-to-string cmd))
+         (trimmed (string-trim output)))
+    (if (string-prefix-p "{" trimmed)
+        (json-parse-string trimmed :array-type 'list :object-type 'alist)
+      (user-error "Failed to fetch PR status: %s" trimmed))))
 
 (defun magit-gh--pr-number-at-point ()
   "Get the PR number from the text property at point."
@@ -194,10 +227,24 @@ so the branch change is immediately visible."
           (progn
             (when-let ((buf (get-buffer "*magit-gh: Pull Requests*")))
               (quit-window nil (get-buffer-window buf)))
+            (when-let ((buf (get-buffer "*magit-gh: PR Status*")))
+              (quit-window nil (get-buffer-window buf)))
             (magit-status-setup-buffer default-directory)
             (message "Checked out PR #%d" number))
         (user-error "Failed to checkout PR #%d; see *magit-gh-output* buffer"
                     number)))))
+
+(defun magit-gh--review-decision-display (decision)
+  "Return a propertized string for review DECISION."
+  (pcase decision
+    ("APPROVED"
+     (propertize "Approved" 'face 'magit-gh-pr-review-approved))
+    ("CHANGES_REQUESTED"
+     (propertize "Changes requested" 'face 'magit-gh-pr-review-changes-requested))
+    ("REVIEW_REQUIRED"
+     (propertize "Review required" 'face 'magit-gh-pr-review-pending))
+    (_
+     (propertize "—" 'face 'magit-gh-pr-author))))
 
 (defun magit-gh--pr-choices (prs)
   "Build an alist of display strings to PR numbers from PRS."
@@ -208,6 +255,69 @@ so the branch change is immediately visible."
                     number)))
           prs))
 
+(defun magit-gh--insert-pr-header ()
+  "Insert column header and separator line for a PR table."
+  (insert (propertize (format "%-7s %-50s %-20s %-20s %s\n"
+                              "PR" "Title" "Author" "Review" "Branch")
+                      'face 'magit-gh-header))
+  (insert (propertize (make-string 130 ?─) 'face 'magit-gh-header) "\n"))
+
+(defun magit-gh--insert-pr-row (pr)
+  "Insert a single PR row with text properties for PR alist."
+  (let* ((number (alist-get 'number pr))
+         (title (alist-get 'title pr))
+         (author (alist-get 'login (alist-get 'author pr)))
+         (review (alist-get 'reviewDecision pr))
+         (branch (alist-get 'headRefName pr))
+         (title-display (if (> (length title) 48)
+                            (concat (substring title 0 45) "...")
+                          title))
+         (review-display (magit-gh--review-decision-display review))
+         (start (point)))
+    (insert (propertize (format "%-7s " (format "#%d" number))
+                        'face 'magit-gh-pr-number)
+            (propertize (format "%-50s " title-display)
+                        'face 'magit-gh-pr-title)
+            (propertize (format "%-20s " (or author ""))
+                        'face 'magit-gh-pr-author)
+            (format "%-20s " review-display)
+            (propertize (or branch "")
+                        'face 'magit-gh-pr-branch)
+            "\n")
+    (put-text-property start (point) 'magit-gh-pr-number number)))
+
+;;; PR Diff Mode
+
+(defvar-local magit-gh-pr-diff--repo-dir nil
+  "The repository directory for the current PR diff buffer.")
+
+(defvar magit-gh-pr-diff-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map diff-mode-map)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for `magit-gh-pr-diff-mode'.")
+
+(define-derived-mode magit-gh-pr-diff-mode diff-mode "GH-Diff"
+  "Major mode for viewing a GitHub PR diff."
+  :group 'magit-gh)
+
+(defun magit-gh--show-pr-diff (number)
+  "Display the diff for PR NUMBER in a dedicated buffer."
+  (let* ((default-directory (magit-gh--repo-dir))
+         (repo-dir default-directory)
+         (output (shell-command-to-string (format "gh pr diff %d" number)))
+         (buf (get-buffer-create (format "*magit-gh: PR #%d Diff*" number))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert output))
+      (magit-gh-pr-diff-mode)
+      (setq magit-gh-pr-diff--repo-dir repo-dir)
+      (setq-local header-line-format (format " PR #%d Diff" number))
+      (goto-char (point-min)))
+    (pop-to-buffer buf)))
+
 ;;; PR List Buffer Commands
 
 (defun magit-gh-pr-list-checkout ()
@@ -216,6 +326,14 @@ so the branch change is immediately visible."
   (if-let ((number (magit-gh--pr-number-at-point)))
       (let ((default-directory magit-gh-pr-list--repo-dir))
         (magit-gh--checkout-pr number))
+    (user-error "No PR at point")))
+
+(defun magit-gh-pr-list-diff ()
+  "View the diff for the PR at point."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-list--repo-dir))
+        (magit-gh--show-pr-diff number))
     (user-error "No PR at point")))
 
 (defun magit-gh-pr-list-browse ()
@@ -232,6 +350,73 @@ so the branch change is immediately visible."
   (let ((default-directory magit-gh-pr-list--repo-dir))
     (magit-gh-pr-list)))
 
+;;; PR Status Buffer Mode
+
+(defvar-local magit-gh-pr-status--repo-dir nil
+  "The repository directory for the current PR status buffer.")
+
+(defvar magit-gh-pr-status-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "RET") #'magit-gh-pr-status-checkout)
+    (define-key map (kbd "c") #'magit-gh-pr-status-checkout)
+    (define-key map (kbd "d") #'magit-gh-pr-status-diff)
+    (define-key map (kbd "v") #'magit-gh-pr-status-browse)
+    (define-key map (kbd "g") #'magit-gh-pr-status-refresh)
+    map)
+  "Keymap for `magit-gh-pr-status-mode'.")
+
+(define-derived-mode magit-gh-pr-status-mode special-mode "GH-Status"
+  "Major mode for viewing GitHub PR status dashboard.
+
+\\<magit-gh-pr-status-mode-map>\
+\\[magit-gh-pr-status-checkout] - Checkout the PR at point
+\\[magit-gh-pr-status-browse] - Open the PR at point in browser
+\\[magit-gh-pr-status-refresh] - Refresh the status dashboard
+\\[quit-window] - Close the buffer"
+  :group 'magit-gh
+  (setq-local header-line-format
+              (substitute-command-keys
+               "\\<magit-gh-pr-status-mode-map>\
+ \\[magit-gh-pr-status-checkout]:checkout  \
+\\[magit-gh-pr-status-diff]:diff  \
+\\[magit-gh-pr-status-browse]:browse  \
+\\[magit-gh-pr-status-refresh]:refresh  \
+\\[quit-window]:quit"))
+  (hl-line-mode 1))
+
+;;; PR Status Buffer Commands
+
+(defun magit-gh-pr-status-checkout ()
+  "Checkout the PR at point in the status buffer."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-status--repo-dir))
+        (magit-gh--checkout-pr number))
+    (user-error "No PR at point")))
+
+(defun magit-gh-pr-status-diff ()
+  "View the diff for the PR at point in the status buffer."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-status--repo-dir))
+        (magit-gh--show-pr-diff number))
+    (user-error "No PR at point")))
+
+(defun magit-gh-pr-status-browse ()
+  "Open the PR at point in the browser from the status buffer."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-status--repo-dir))
+        (shell-command (format "gh pr view %d --web" number)))
+    (user-error "No PR at point")))
+
+(defun magit-gh-pr-status-refresh ()
+  "Refresh the PR status buffer."
+  (interactive)
+  (let ((default-directory magit-gh-pr-status--repo-dir))
+    (magit-gh-pr-status)))
+
 ;;; Main Commands
 
 (defun magit-gh-pr-list ()
@@ -247,33 +432,46 @@ so the branch change is immediately visible."
         (if (null prs)
             (insert (propertize "No open pull requests."
                                 'face 'magit-gh-pr-author))
-          (insert (propertize (format "%-7s %-60s %-20s %s\n"
-                                      "PR" "Title" "Author" "Branch")
-                              'face 'magit-gh-header))
-          (insert (propertize (make-string 110 ?─) 'face 'magit-gh-header) "\n")
+          (magit-gh--insert-pr-header)
           (dolist (pr prs)
-            (let* ((number (alist-get 'number pr))
-                   (title (alist-get 'title pr))
-                   (author (alist-get 'login (alist-get 'author pr)))
-                   (branch (alist-get 'headRefName pr))
-                   (title-display (if (> (length title) 58)
-                                      (concat (substring title 0 55) "...")
-                                    title))
-                   (start (point)))
-              (insert (propertize (format "%-7s " (format "#%d" number))
-                                  'face 'magit-gh-pr-number)
-                      (propertize (format "%-60s " title-display)
-                                  'face 'magit-gh-pr-title)
-                      (propertize (format "%-20s " (or author ""))
-                                  'face 'magit-gh-pr-author)
-                      (propertize (or branch "")
-                                  'face 'magit-gh-pr-branch)
-                      "\n")
-              (put-text-property start (point) 'magit-gh-pr-number number))))
+            (magit-gh--insert-pr-row pr)))
         (goto-char (point-min))
         (when prs (forward-line 2)))
       (magit-gh-pr-list-mode)
       (setq magit-gh-pr-list--repo-dir repo-dir))
+    (pop-to-buffer buf)))
+
+(defun magit-gh-pr-status ()
+  "Show PR status dashboard for the current repository.
+Displays PRs created by you and PRs awaiting your review."
+  (interactive)
+  (let* ((repo-dir (magit-gh--repo-dir))
+         (default-directory repo-dir)
+         (status (magit-gh--fetch-pr-status))
+         (created (alist-get 'createdBy status))
+         (needs-review (alist-get 'needsReview status))
+         (buf (get-buffer-create "*magit-gh: PR Status*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        ;; Created by you
+        (insert (propertize "Created by you\n" 'face 'magit-gh-header))
+        (if (null created)
+            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+          (magit-gh--insert-pr-header)
+          (dolist (pr created)
+            (magit-gh--insert-pr-row pr)))
+        (insert "\n")
+        ;; Review requested
+        (insert (propertize "Review requested\n" 'face 'magit-gh-header))
+        (if (null needs-review)
+            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+          (magit-gh--insert-pr-header)
+          (dolist (pr needs-review)
+            (magit-gh--insert-pr-row pr))))
+      (goto-char (point-min))
+      (magit-gh-pr-status-mode)
+      (setq magit-gh-pr-status--repo-dir repo-dir))
     (pop-to-buffer buf)))
 
 (defun magit-gh-pr-checkout ()
@@ -285,6 +483,16 @@ so the branch change is immediately visible."
          (number (cdr (assoc choice choices))))
     (when number
       (magit-gh--checkout-pr number))))
+
+(defun magit-gh-pr-diff ()
+  "Select a PR and view its diff."
+  (interactive)
+  (let* ((prs (magit-gh--fetch-prs))
+         (choices (magit-gh--pr-choices prs))
+         (choice (completing-read "Diff PR: " choices nil t))
+         (number (cdr (assoc choice choices))))
+    (when number
+      (magit-gh--show-pr-diff number))))
 
 (defun magit-gh-pr-view ()
   "Select a PR and open it in the browser."
