@@ -4,7 +4,7 @@
 
 ;; Author: Jonathan Chu <me@jonathanchu.is>
 ;; URL: https://github.com/jonathanchu/magit-gh
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "29.1") (magit "4.0.0") (transient "0.5.0"))
 ;; Keywords: git tools vc github
 
