@@ -150,11 +150,14 @@ The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr statu
   - [X] Checkout a pull request
   - [X] View a pull request in the browser
   - [X] View PR diff
-  - [X] View PR checks/status
+  - [X] PR status dashboard (created by you, review requested, recently merged)
+  - [X] Age and merged columns in PR tables
+  - [ ] PR checks/CI status
   - [ ] Create a new pull request
   - [ ] Merge a pull request
-  - [ ] Review a pull request
-  - [ ] List and manage issues
+  - [ ] PR review (approve, request changes, comment)
+  - [ ] View and monitor workflow runs
+  - [ ] List issues
 
 * Contributing
 
