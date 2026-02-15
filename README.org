@@ -108,7 +108,7 @@ magit-gh
 
 ** PR List Buffer
 
-When you list PRs (~l~), a dedicated buffer opens showing PR number, title, author, review status, and branch name. By default it shows open PRs, but you can toggle the state filter with ~t~ to cycle through open, closed, merged, and all. The following keybindings are available in this buffer:
+When you list PRs (~l~), a dedicated buffer opens showing PR number, age, title, author, review status, and branch name. By default it shows open PRs, but you can toggle the state filter with ~t~ to cycle through open, closed, merged, and all. The following keybindings are available in this buffer:
 
 | Key     | Action                            |
 |---------+-----------------------------------|
@@ -122,7 +122,7 @@ When you list PRs (~l~), a dedicated buffer opens showing PR number, title, auth
 
 ** PR Status Dashboard
 
-The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr status=. It displays three sections: PRs you created, PRs awaiting your review, and recently merged PRs in the repository. The following keybindings are available in this buffer:
+The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr status=. It displays three sections: PRs you created, PRs awaiting your review, and recently merged PRs in the repository. All sections show an age column (days since creation), and the "Recently merged" section adds a merged column showing time since merge. The following keybindings are available in this buffer:
 
 | Key     | Action                          |
 |---------+---------------------------------|
