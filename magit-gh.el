@@ -90,8 +90,8 @@ Set this variable before loading the package to use a custom key."
 (transient-define-prefix magit-gh ()
   "GitHub CLI commands."
   ["Pull Requests"
-   ("l" "List open PRs" magit-gh-pr-list)
-   ("s" "PR status" magit-gh-pr-status)
+   ("l" "List PRs" magit-gh-pr-list)
+   ("s" "PR status dashboard" magit-gh-pr-status)
    ("c" "Checkout PR" magit-gh-pr-checkout)
    ("d" "Diff PR" magit-gh-pr-diff)
    ("v" "View PR in browser" magit-gh-pr-view)])
@@ -101,6 +101,10 @@ Set this variable before loading the package to use a custom key."
 (defvar-local magit-gh-pr-list--repo-dir nil
   "The repository directory for the current PR list buffer.")
 
+(defvar-local magit-gh-pr-list--state "open"
+  "The current state filter for the PR list buffer.
+One of \"open\", \"closed\", \"merged\", or \"all\".")
+
 (defvar magit-gh-pr-list-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
@@ -108,6 +112,7 @@ Set this variable before loading the package to use a custom key."
     (define-key map (kbd "c") #'magit-gh-pr-list-checkout)
     (define-key map (kbd "d") #'magit-gh-pr-list-diff)
     (define-key map (kbd "v") #'magit-gh-pr-list-browse)
+    (define-key map (kbd "t") #'magit-gh-pr-list-cycle-state)
     (define-key map (kbd "g") #'magit-gh-pr-list-refresh)
     map)
   "Keymap for `magit-gh-pr-list-mode'.")
@@ -121,14 +126,7 @@ Set this variable before loading the package to use a custom key."
 \\[magit-gh-pr-list-refresh] - Refresh the PR list
 \\[quit-window] - Close the buffer"
   :group 'magit-gh
-  (setq-local header-line-format
-              (substitute-command-keys
-               "\\<magit-gh-pr-list-mode-map>\
- \\[magit-gh-pr-list-checkout]:checkout  \
-\\[magit-gh-pr-list-diff]:diff  \
-\\[magit-gh-pr-list-browse]:browse  \
-\\[magit-gh-pr-list-refresh]:refresh  \
-\\[quit-window]:quit"))
+  (magit-gh-pr-list--update-header-line)
   (hl-line-mode 1))
 
 ;;; Custom faces
@@ -185,12 +183,14 @@ Set this variable before loading the package to use a custom key."
   (unless (executable-find "gh")
     (user-error "`gh' not found; install from https://cli.github.com")))
 
-(defun magit-gh--fetch-prs ()
-  "Fetch open PRs as a list of alists via gh CLI."
+(defun magit-gh--fetch-prs (&optional state)
+  "Fetch PRs as a list of alists via gh CLI.
+STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\")."
   (magit-gh--check-gh)
   (let* ((default-directory (magit-gh--repo-dir))
-         (cmd (format "gh pr list --state open --json number,title,author,headRefName,reviewDecision --limit %d"
-                      magit-gh-pr-limit))
+         (state (or state "open"))
+         (cmd (format "gh pr list --state %s --json number,title,author,headRefName,reviewDecision --limit %d"
+                      state magit-gh-pr-limit))
          (output (shell-command-to-string cmd))
          (trimmed (string-trim output)))
     (if (string-prefix-p "[" trimmed)
@@ -318,6 +318,36 @@ so the branch change is immediately visible."
       (goto-char (point-min)))
     (pop-to-buffer buf)))
 
+(defun magit-gh-pr-list--update-header-line ()
+  "Update the header line to reflect the current state filter."
+  (setq-local header-line-format
+              " c:checkout  d:diff  v:browse  t:toggle state  g:refresh  q:quit"))
+
+(defun magit-gh-pr-list--state-indicator (active-state)
+  "Return a propertized state indicator string for ACTIVE-STATE.
+Highlights the active state and dims the others."
+  (let ((states '("open" "closed" "merged" "all")))
+    (concat "  ["
+            (mapconcat
+             (lambda (s)
+               (if (equal s active-state)
+                   (propertize s 'face 'magit-gh-header)
+                 (propertize s 'face 'magit-gh-pr-author)))
+             states
+             " · ")
+            "]")))
+
+(defun magit-gh-pr-list-cycle-state ()
+  "Cycle the PR list state filter: open -> closed -> merged -> all -> open."
+  (interactive)
+  (setq magit-gh-pr-list--state
+        (pcase magit-gh-pr-list--state
+          ("open" "closed")
+          ("closed" "merged")
+          ("merged" "all")
+          (_ "open")))
+  (magit-gh-pr-list-refresh))
+
 ;;; PR List Buffer Commands
 
 (defun magit-gh-pr-list-checkout ()
@@ -345,10 +375,11 @@ so the branch change is immediately visible."
     (user-error "No PR at point")))
 
 (defun magit-gh-pr-list-refresh ()
-  "Refresh the PR list buffer."
+  "Refresh the PR list buffer, preserving the current state filter."
   (interactive)
-  (let ((default-directory magit-gh-pr-list--repo-dir))
-    (magit-gh-pr-list)))
+  (let ((default-directory magit-gh-pr-list--repo-dir)
+        (state magit-gh-pr-list--state))
+    (magit-gh-pr-list state)))
 
 ;;; PR Status Buffer Mode
 
@@ -419,26 +450,35 @@ so the branch change is immediately visible."
 
 ;;; Main Commands
 
-(defun magit-gh-pr-list ()
-  "List open pull requests for the current repository."
+(defun magit-gh-pr-list (&optional state)
+  "List pull requests for the current repository.
+STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\")."
   (interactive)
-  (let* ((repo-dir (magit-gh--repo-dir))
+  (let* ((state (or state "open"))
+         (repo-dir (magit-gh--repo-dir))
          (default-directory repo-dir)
-         (prs (magit-gh--fetch-prs))
+         (prs (magit-gh--fetch-prs state))
          (buf (get-buffer-create "*magit-gh: Pull Requests*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
+        (insert (propertize (format "%s pull requests"
+                                    (capitalize state))
+                            'face 'magit-gh-header)
+                (magit-gh-pr-list--state-indicator state)
+                "\n\n")
         (if (null prs)
-            (insert (propertize "No open pull requests."
+            (insert (propertize (format "No %s pull requests." state)
                                 'face 'magit-gh-pr-author))
           (magit-gh--insert-pr-header)
           (dolist (pr prs)
             (magit-gh--insert-pr-row pr)))
         (goto-char (point-min))
-        (when prs (forward-line 2)))
+        (when prs (forward-line 4)))
       (magit-gh-pr-list-mode)
-      (setq magit-gh-pr-list--repo-dir repo-dir))
+      (setq magit-gh-pr-list--repo-dir repo-dir)
+      (setq magit-gh-pr-list--state state)
+      (magit-gh-pr-list--update-header-line))
     (pop-to-buffer buf)))
 
 (defun magit-gh-pr-status ()
