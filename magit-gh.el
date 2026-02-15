@@ -210,6 +210,18 @@ each containing a list of PR alists."
         (json-parse-string trimmed :array-type 'list :object-type 'alist)
       (user-error "Failed to fetch PR status: %s" trimmed))))
 
+(defun magit-gh--fetch-recently-merged ()
+  "Fetch recently merged PRs for the current repository via gh CLI.
+Returns a list of PR alists."
+  (magit-gh--check-gh)
+  (let* ((default-directory (magit-gh--repo-dir))
+         (cmd "gh pr list --state merged --json number,title,author,headRefName,reviewDecision --limit 10")
+         (output (shell-command-to-string cmd))
+         (trimmed (string-trim output)))
+    (if (string-prefix-p "[" trimmed)
+        (json-parse-string trimmed :array-type 'list :object-type 'alist)
+      (user-error "Failed to fetch recently merged PRs: %s" trimmed))))
+
 (defun magit-gh--pr-number-at-point ()
   "Get the PR number from the text property at point."
   (get-text-property (line-beginning-position) 'magit-gh-pr-number))
@@ -483,13 +495,15 @@ STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\").
 
 (defun magit-gh-pr-status ()
   "Show PR status dashboard for the current repository.
-Displays PRs created by you and PRs awaiting your review."
+Displays PRs created by you, PRs awaiting your review,
+and your recently merged PRs."
   (interactive)
   (let* ((repo-dir (magit-gh--repo-dir))
          (default-directory repo-dir)
          (status (magit-gh--fetch-pr-status))
          (created (alist-get 'createdBy status))
          (needs-review (alist-get 'needsReview status))
+         (recently-merged (magit-gh--fetch-recently-merged))
          (buf (get-buffer-create "*magit-gh: PR Status*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -508,6 +522,14 @@ Displays PRs created by you and PRs awaiting your review."
             (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
           (magit-gh--insert-pr-header)
           (dolist (pr needs-review)
+            (magit-gh--insert-pr-row pr)))
+        (insert "\n")
+        ;; Recently merged
+        (insert (propertize "Recently merged\n" 'face 'magit-gh-header))
+        (if (null recently-merged)
+            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+          (magit-gh--insert-pr-header)
+          (dolist (pr recently-merged)
             (magit-gh--insert-pr-row pr))))
       (goto-char (point-min))
       (magit-gh-pr-status-mode)

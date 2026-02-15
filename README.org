@@ -8,7 +8,7 @@
 
 Features include:
   - List pull requests in a dedicated buffer with review status (toggle between open, closed, merged, and all)
-  - PR status dashboard showing PRs you created and PRs awaiting your review
+  - PR status dashboard showing PRs you created, PRs awaiting your review, and recently merged PRs
   - View a PR diff in a dedicated buffer
   - Checkout a PR branch with a single keystroke
   - View a PR in the browser
@@ -122,7 +122,7 @@ When you list PRs (~l~), a dedicated buffer opens showing PR number, title, auth
 
 ** PR Status Dashboard
 
-The status dashboard (~s~) shows a personal overview of your PRs, mirroring =gh pr status=. It displays two sections: PRs you created and PRs awaiting your review. The following keybindings are available in this buffer:
+The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr status=. It displays three sections: PRs you created, PRs awaiting your review, and recently merged PRs in the repository. The following keybindings are available in this buffer:
 
 | Key     | Action                          |
 |---------+---------------------------------|
