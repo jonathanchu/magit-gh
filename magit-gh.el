@@ -61,6 +61,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'magit)
 (require 'transient)
 (require 'json)
@@ -227,6 +228,51 @@ Returns a list of PR alists."
     (if (string-prefix-p "[" trimmed)
         (json-parse-string trimmed :array-type 'list :object-type 'alist)
       (user-error "Failed to fetch recently merged PRs: %s" trimmed))))
+
+(defun magit-gh--async-fetch (cmd callback &optional errback)
+  "Run CMD asynchronously, parse JSON output, and call CALLBACK.
+CMD is a shell command string (typically a gh CLI invocation).
+CALLBACK is called with the parsed JSON data on success.
+ERRBACK is called with an error message on failure; if nil,
+a message is displayed instead."
+  (let* ((output (list ""))
+         (stderr-buf (generate-new-buffer " *magit-gh-async-stderr*"))
+         (coding-system-for-read 'utf-8-unix)
+         (process-environment (cons "NO_COLOR=1" process-environment))
+         (proc (make-process
+                :name "magit-gh-async"
+                :buffer nil
+                :stderr stderr-buf
+                :command (split-string cmd)
+                :filter
+                (lambda (_process string)
+                  (setcar output (concat (car output) string)))
+                :sentinel
+                (lambda (process _event)
+                  (when (memq (process-status process) '(exit signal))
+                    (unwind-protect
+                        (if (= (process-exit-status process) 0)
+                            (condition-case err
+                                (let* ((trimmed (string-trim (car output)))
+                                       (data (json-parse-string
+                                              trimmed
+                                              :array-type 'list
+                                              :object-type 'alist)))
+                                  (funcall callback data))
+                              (json-parse-error
+                               (let ((msg (format "magit-gh: %s"
+                                                  (error-message-string err))))
+                                 (if errback (funcall errback msg)
+                                   (message "%s" msg)))))
+                          (let ((msg (format "gh command failed: %s"
+                                             (string-trim
+                                              (with-current-buffer stderr-buf
+                                                (buffer-string))))))
+                            (if errback
+                                (funcall errback msg)
+                              (message "%s" msg))))
+                      (kill-buffer stderr-buf)))))))
+    (ignore proc)))
 
 (defun magit-gh--pr-number-at-point ()
   "Get the PR number from the text property at point."
@@ -499,15 +545,9 @@ Highlights the active state and dims the others."
 
 ;;; Main Commands
 
-(defun magit-gh-pr-list (&optional state)
-  "List pull requests for the current repository.
-STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\")."
-  (interactive)
-  (let* ((state (or state "open"))
-         (repo-dir (magit-gh--repo-dir))
-         (default-directory repo-dir)
-         (prs (magit-gh--fetch-prs state))
-         (buf (get-buffer-create "*magit-gh: Pull Requests*")))
+(defun magit-gh-pr-list--render (buf state prs)
+  "Render PR list data PRS into BUF for STATE."
+  (when (buffer-live-p buf)
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -523,55 +563,106 @@ STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\").
           (dolist (pr prs)
             (magit-gh--insert-pr-row pr)))
         (goto-char (point-min))
-        (when prs (forward-line 4)))
+        (when prs (forward-line 4))))))
+
+(defun magit-gh-pr-list (&optional state)
+  "List pull requests for the current repository.
+STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\")."
+  (interactive)
+  (magit-gh--check-gh)
+  (let* ((state (or state "open"))
+         (repo-dir (magit-gh--repo-dir))
+         (default-directory repo-dir)
+         (cmd (format "gh pr list --state %s --json number,title,author,headRefName,reviewDecision,createdAt --limit %d"
+                      state magit-gh-pr-limit))
+         (buf (get-buffer-create "*magit-gh: Pull Requests*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (format "%s pull requests"
+                                    (capitalize state))
+                            'face 'magit-gh-header)
+                (magit-gh-pr-list--state-indicator state)
+                "\n\n")
+        (insert (propertize "Loading..." 'face 'magit-gh-pr-author)))
       (magit-gh-pr-list-mode)
       (setq magit-gh-pr-list--repo-dir repo-dir)
       (setq magit-gh-pr-list--state state)
       (magit-gh-pr-list--update-header-line))
-    (pop-to-buffer buf)))
+    (pop-to-buffer buf)
+    (magit-gh--async-fetch cmd
+                           (lambda (data)
+                             (magit-gh-pr-list--render buf state data)))))
+
+(defun magit-gh-pr-status--render (buf status-data merged-data)
+  "Render the PR status dashboard into BUF.
+STATUS-DATA is the parsed `gh pr status' output.
+MERGED-DATA is the parsed recently-merged PR list."
+  (when (buffer-live-p buf)
+    (let ((created (alist-get 'createdBy status-data))
+          (needs-review (alist-get 'needsReview status-data)))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          ;; Created by you
+          (insert (propertize "Created by you\n" 'face 'magit-gh-header))
+          (if (null created)
+              (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+            (magit-gh--insert-pr-header)
+            (dolist (pr created)
+              (magit-gh--insert-pr-row pr)))
+          (insert "\n")
+          ;; Review requested
+          (insert (propertize "Review requested\n" 'face 'magit-gh-header))
+          (if (null needs-review)
+              (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+            (magit-gh--insert-pr-header)
+            (dolist (pr needs-review)
+              (magit-gh--insert-pr-row pr)))
+          (insert "\n")
+          ;; Recently merged
+          (insert (propertize "Recently merged\n" 'face 'magit-gh-header))
+          (if (null merged-data)
+              (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
+            (magit-gh--insert-pr-header t)
+            (dolist (pr merged-data)
+              (magit-gh--insert-pr-row pr t))))
+        (goto-char (point-min))))))
 
 (defun magit-gh-pr-status ()
   "Show PR status dashboard for the current repository.
 Displays PRs created by you, PRs awaiting your review,
 and your recently merged PRs."
   (interactive)
+  (magit-gh--check-gh)
   (let* ((repo-dir (magit-gh--repo-dir))
          (default-directory repo-dir)
-         (status (magit-gh--fetch-pr-status))
-         (created (alist-get 'createdBy status))
-         (needs-review (alist-get 'needsReview status))
-         (recently-merged (magit-gh--fetch-recently-merged))
-         (buf (get-buffer-create "*magit-gh: PR Status*")))
+         (status-cmd "gh pr status --json number,title,author,headRefName,reviewDecision,createdAt")
+         (merged-cmd "gh pr list --state merged --json number,title,author,headRefName,reviewDecision,createdAt,mergedAt --limit 10")
+         (buf (get-buffer-create "*magit-gh: PR Status*"))
+         (results (list nil nil))
+         (remaining (list 2)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        ;; Created by you
-        (insert (propertize "Created by you\n" 'face 'magit-gh-header))
-        (if (null created)
-            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
-          (magit-gh--insert-pr-header)
-          (dolist (pr created)
-            (magit-gh--insert-pr-row pr)))
-        (insert "\n")
-        ;; Review requested
-        (insert (propertize "Review requested\n" 'face 'magit-gh-header))
-        (if (null needs-review)
-            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
-          (magit-gh--insert-pr-header)
-          (dolist (pr needs-review)
-            (magit-gh--insert-pr-row pr)))
-        (insert "\n")
-        ;; Recently merged
-        (insert (propertize "Recently merged\n" 'face 'magit-gh-header))
-        (if (null recently-merged)
-            (insert (propertize "None.\n" 'face 'magit-gh-pr-author))
-          (magit-gh--insert-pr-header t)
-          (dolist (pr recently-merged)
-            (magit-gh--insert-pr-row pr t))))
-      (goto-char (point-min))
+        (insert (propertize "Loading..." 'face 'magit-gh-pr-author)))
       (magit-gh-pr-status-mode)
       (setq magit-gh-pr-status--repo-dir repo-dir))
-    (pop-to-buffer buf)))
+    (pop-to-buffer buf)
+    (magit-gh--async-fetch
+     status-cmd
+     (lambda (data)
+       (setcar results data)
+       (cl-decf (car remaining))
+       (when (= (car remaining) 0)
+         (magit-gh-pr-status--render buf (nth 0 results) (nth 1 results)))))
+    (magit-gh--async-fetch
+     merged-cmd
+     (lambda (data)
+       (setcar (cdr results) data)
+       (cl-decf (car remaining))
+       (when (= (car remaining) 0)
+         (magit-gh-pr-status--render buf (nth 0 results) (nth 1 results)))))))
 
 (defun magit-gh-pr-checkout ()
   "Select and checkout a PR using `completing-read'."
