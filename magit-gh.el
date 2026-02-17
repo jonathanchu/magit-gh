@@ -845,9 +845,10 @@ If NUMBER is nil, show checks for the current branch's PR."
   (magit-gh--check-gh)
   (let* ((repo-dir (magit-gh--repo-dir))
          (default-directory repo-dir)
+         (repo-name (file-name-nondirectory (directory-file-name repo-dir)))
          (buf-name (if number
-                       (format "*magit-gh: PR #%d Checks*" number)
-                     "*magit-gh: PR Checks*"))
+                       (format "*magit-gh: %s PR #%d Checks*" repo-name number)
+                     (format "*magit-gh: %s PR Checks*" repo-name)))
          (cmd (format "gh pr checks %s --json bucket,name,description,completedAt,startedAt,link,workflow"
                       (if number (number-to-string number) "")))
          (buf (get-buffer-create buf-name)))
@@ -866,9 +867,17 @@ If NUMBER is nil, show checks for the current branch's PR."
      (lambda (msg)
        (when (buffer-live-p buf)
          (with-current-buffer buf
-           (let ((inhibit-read-only t))
+           (let* ((inhibit-read-only t)
+                  (friendly (cond
+                             ((string-match-p "no pull request" msg)
+                              "No pull request found for the current branch.")
+                             ((string-match-p "Could not resolve" msg)
+                              "Could not find this repository on GitHub.")
+                             ((string-match-p "gh auth" msg)
+                              "Not authenticated. Run `gh auth login` first.")
+                             (t msg))))
              (erase-buffer)
-             (insert (propertize msg 'face 'magit-gh-pr-review-changes-requested)))))))))
+             (insert (propertize friendly 'face 'magit-gh-pr-review-changes-requested)))))))))
 
 (defun magit-gh-pr-checks ()
   "Show CI checks for the current branch's PR."
