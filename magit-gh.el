@@ -91,12 +91,14 @@ Set this variable before loading the package to use a custom key."
 ;;;###autoload (autoload 'magit-gh "magit-gh" nil t)
 (transient-define-prefix magit-gh ()
   "GitHub CLI commands."
-  ["Pull Requests"
+  ["Overview"
    ("l" "List PRs" magit-gh-pr-list)
-   ("s" "PR status dashboard" magit-gh-pr-status)
-   ("k" "PR checks/CI status" magit-gh-pr-checks)
-   ("c" "Checkout PR" magit-gh-pr-checkout)
+   ("s" "PR status dashboard" magit-gh-pr-status)]
+  ["Inspect"
    ("d" "Diff PR" magit-gh-pr-diff)
+   ("k" "PR checks/CI status" magit-gh-pr-checks)]
+  ["Actions"
+   ("c" "Checkout PR" magit-gh-pr-checkout)
    ("v" "View PR in browser" magit-gh-pr-view)])
 
 ;;; PR List Buffer Mode
