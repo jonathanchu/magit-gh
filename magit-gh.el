@@ -94,6 +94,7 @@ Set this variable before loading the package to use a custom key."
   ["Pull Requests"
    ("l" "List PRs" magit-gh-pr-list)
    ("s" "PR status dashboard" magit-gh-pr-status)
+   ("k" "PR checks/CI status" magit-gh-pr-checks)
    ("c" "Checkout PR" magit-gh-pr-checkout)
    ("d" "Diff PR" magit-gh-pr-diff)
    ("v" "View PR in browser" magit-gh-pr-view)])
@@ -114,6 +115,7 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
     (define-key map (kbd "c") #'magit-gh-pr-list-checkout)
     (define-key map (kbd "d") #'magit-gh-pr-list-diff)
     (define-key map (kbd "v") #'magit-gh-pr-list-browse)
+    (define-key map (kbd "k") #'magit-gh-pr-list-checks)
     (define-key map (kbd "t") #'magit-gh-pr-list-cycle-state)
     (define-key map (kbd "g") #'magit-gh-pr-list-refresh)
     map)
@@ -416,7 +418,7 @@ When SHOW-MERGED-COL is non-nil, append the merged age at end of row."
 (defun magit-gh-pr-list--update-header-line ()
   "Update the header line to reflect the current state filter."
   (setq-local header-line-format
-              " c:checkout  d:diff  v:browse  t:toggle state  g:refresh  q:quit"))
+              " c:checkout  d:diff  v:browse  k:checks  t:toggle state  g:refresh  q:quit"))
 
 (defun magit-gh-pr-list--state-indicator (active-state)
   "Return a propertized state indicator string for ACTIVE-STATE.
@@ -488,6 +490,7 @@ Highlights the active state and dims the others."
     (define-key map (kbd "c") #'magit-gh-pr-status-checkout)
     (define-key map (kbd "d") #'magit-gh-pr-status-diff)
     (define-key map (kbd "v") #'magit-gh-pr-status-browse)
+    (define-key map (kbd "k") #'magit-gh-pr-status-checks)
     (define-key map (kbd "g") #'magit-gh-pr-status-refresh)
     map)
   "Keymap for `magit-gh-pr-status-mode'.")
@@ -507,6 +510,7 @@ Highlights the active state and dims the others."
  \\[magit-gh-pr-status-checkout]:checkout  \
 \\[magit-gh-pr-status-diff]:diff  \
 \\[magit-gh-pr-status-browse]:browse  \
+\\[magit-gh-pr-status-checks]:checks  \
 \\[magit-gh-pr-status-refresh]:refresh  \
 \\[quit-window]:quit"))
   (hl-line-mode 1))
@@ -694,6 +698,228 @@ and your recently merged PRs."
     (when number
       (let ((default-directory (magit-gh--repo-dir)))
         (shell-command (format "gh pr view %d --web" number))))))
+
+;;; PR Checks Buffer Mode
+
+(defvar-local magit-gh-pr-checks--repo-dir nil
+  "The repository directory for the current PR checks buffer.")
+
+(defvar-local magit-gh-pr-checks--pr-number nil
+  "The PR number for the current PR checks buffer.")
+
+(defvar magit-gh-pr-checks-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "v") #'magit-gh-pr-checks-browse)
+    (define-key map (kbd "g") #'magit-gh-pr-checks-refresh)
+    map)
+  "Keymap for `magit-gh-pr-checks-mode'.")
+
+(define-derived-mode magit-gh-pr-checks-mode special-mode "GH-Checks"
+  "Major mode for viewing GitHub PR checks/CI status.
+
+\\<magit-gh-pr-checks-mode-map>\
+\\[magit-gh-pr-checks-browse] - Open the check at point in browser
+\\[magit-gh-pr-checks-refresh] - Refresh the checks
+\\[quit-window] - Close the buffer"
+  :group 'magit-gh
+  (setq-local header-line-format " v:browse  g:refresh  q:quit")
+  (hl-line-mode 1))
+
+;;; PR Checks Helper Functions
+
+(defun magit-gh--format-duration (started completed)
+  "Format elapsed time between STARTED and COMPLETED ISO timestamps.
+Returns \"Xs\", \"Xm Ys\", or \"Xh Ym\".
+Returns \"--\" if either timestamp is nil."
+  (if (or (not (stringp started)) (not (stringp completed))
+          (string-empty-p started) (string-empty-p completed)
+          (string-prefix-p "0001" started)
+          (string-prefix-p "0001" completed))
+      "--"
+    (let* ((start-time (encode-time (iso8601-parse started)))
+           (end-time (encode-time (iso8601-parse completed)))
+           (secs (floor (float-time (time-subtract end-time start-time)))))
+      (if (<= secs 0)
+          "--"
+        (cond
+         ((< secs 60) (format "%ds" secs))
+         ((< secs 3600) (format "%dm %ds" (/ secs 60) (% secs 60)))
+         (t (format "%dh %dm" (/ secs 3600) (/ (% secs 3600) 60))))))))
+
+(defun magit-gh--check-bucket-display (bucket)
+  "Return a propertized string for check BUCKET status."
+  (pcase bucket
+    ("pass"
+     (propertize "pass" 'face 'magit-gh-pr-review-approved))
+    ((or "fail" "cancel")
+     (propertize bucket 'face 'magit-gh-pr-review-changes-requested))
+    ("pending"
+     (propertize "pending" 'face 'magit-gh-pr-review-pending))
+    ("skipping"
+     (propertize "skipping" 'face 'magit-gh-pr-author))
+    (_
+     (propertize (or bucket "—") 'face 'magit-gh-pr-author))))
+
+(defun magit-gh--check-link-at-point ()
+  "Get the check link from the text property at point."
+  (get-text-property (line-beginning-position) 'magit-gh-check-link))
+
+;;; PR Checks Rendering
+
+(defun magit-gh--check-sort-key (bucket)
+  "Return a numeric sort key for BUCKET (lower = first)."
+  (pcase bucket
+    ("fail" 0)
+    ("cancel" 1)
+    ("pending" 2)
+    ("pass" 3)
+    ("skipping" 4)
+    (_ 5)))
+
+(defun magit-gh-pr-checks--insert-row (check)
+  "Insert a single row for CHECK alist into the current buffer."
+  (let* ((bucket (alist-get 'bucket check))
+         (name (or (alist-get 'name check) ""))
+         (workflow (or (alist-get 'workflow check) ""))
+         (started (alist-get 'startedAt check))
+         (completed (alist-get 'completedAt check))
+         (duration (magit-gh--format-duration started completed))
+         (description (or (alist-get 'description check) ""))
+         (link (or (alist-get 'link check) ""))
+         (name-display (if (> (length name) 38)
+                           (concat (substring name 0 35) "...")
+                         name))
+         (workflow-display (if (> (length workflow) 23)
+                               (concat (substring workflow 0 20) "...")
+                             workflow))
+         (desc-display (if (> (length description) 40)
+                           (concat (substring description 0 37) "...")
+                         description))
+         (start (point)))
+    (insert (format "%-10s " (magit-gh--check-bucket-display bucket))
+            (propertize (format "%-40s " name-display)
+                        'face 'magit-gh-pr-title)
+            (propertize (format "%-25s " workflow-display)
+                        'face 'magit-gh-pr-author)
+            (propertize (format "%-10s " duration)
+                        'face 'magit-gh-pr-age)
+            (propertize desc-display
+                        'face 'magit-gh-pr-author)
+            "\n")
+    (put-text-property start (point) 'magit-gh-check-link link)))
+
+(defun magit-gh-pr-checks--render (buf pr-number checks)
+  "Render PR checks data CHECKS into BUF for PR-NUMBER.
+PR-NUMBER may be nil for current-branch checks."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t)
+            (sorted (sort (copy-sequence checks)
+                          (lambda (a b)
+                            (< (magit-gh--check-sort-key
+                                (alist-get 'bucket a))
+                               (magit-gh--check-sort-key
+                                (alist-get 'bucket b)))))))
+        (erase-buffer)
+        (insert (propertize (if pr-number
+                                (format "Checks for PR #%d" pr-number)
+                              "Checks for current branch")
+                            'face 'magit-gh-header)
+                "\n\n")
+        (if (null sorted)
+            (insert (propertize "No checks found." 'face 'magit-gh-pr-author))
+          (insert (propertize (format "%-10s %-40s %-25s %-10s %s"
+                                      "Status" "Name" "Workflow"
+                                      "Duration" "Description")
+                              'face 'magit-gh-header)
+                  "\n")
+          (insert (propertize (make-string 100 ?─) 'face 'magit-gh-header)
+                  "\n")
+          (dolist (check sorted)
+            (magit-gh-pr-checks--insert-row check)))
+        (goto-char (point-min))
+        (when sorted (forward-line 4))))))
+
+;;; PR Checks Commands
+
+(defun magit-gh--show-pr-checks (number)
+  "Show CI checks for PR NUMBER.
+If NUMBER is nil, show checks for the current branch's PR."
+  (magit-gh--check-gh)
+  (let* ((repo-dir (magit-gh--repo-dir))
+         (default-directory repo-dir)
+         (repo-name (file-name-nondirectory (directory-file-name repo-dir)))
+         (buf-name (if number
+                       (format "*magit-gh: %s PR #%d Checks*" repo-name number)
+                     (format "*magit-gh: %s PR Checks*" repo-name)))
+         (cmd (format "gh pr checks %s --json bucket,name,description,completedAt,startedAt,link,workflow"
+                      (if number (number-to-string number) "")))
+         (buf (get-buffer-create buf-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "Loading..." 'face 'magit-gh-pr-author)))
+      (magit-gh-pr-checks-mode)
+      (setq magit-gh-pr-checks--repo-dir repo-dir)
+      (setq magit-gh-pr-checks--pr-number number))
+    (pop-to-buffer buf)
+    (magit-gh--async-fetch
+     cmd
+     (lambda (data)
+       (magit-gh-pr-checks--render buf number data))
+     (lambda (msg)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (let* ((inhibit-read-only t)
+                  (friendly (cond
+                             ((string-match-p "no pull request" msg)
+                              "No pull request found for the current branch.")
+                             ((string-match-p "Could not resolve" msg)
+                              "Could not find this repository on GitHub.")
+                             ((string-match-p "gh auth" msg)
+                              "Not authenticated. Run `gh auth login` first.")
+                             (t msg))))
+             (erase-buffer)
+             (insert (propertize friendly 'face 'magit-gh-pr-review-changes-requested)))))))))
+
+(defun magit-gh-pr-checks ()
+  "Show CI checks for the current branch's PR."
+  (interactive)
+  (magit-gh--show-pr-checks nil))
+
+(defun magit-gh-pr-list-checks ()
+  "Show CI checks for the PR at point in the PR list buffer."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-list--repo-dir))
+        (magit-gh--show-pr-checks number))
+    (user-error "No PR at point")))
+
+(defun magit-gh-pr-status-checks ()
+  "Show CI checks for the PR at point in the PR status buffer."
+  (interactive)
+  (if-let ((number (magit-gh--pr-number-at-point)))
+      (let ((default-directory magit-gh-pr-status--repo-dir))
+        (magit-gh--show-pr-checks number))
+    (user-error "No PR at point")))
+
+;;; PR Checks Buffer Commands
+
+(defun magit-gh-pr-checks-browse ()
+  "Open the check at point in the browser."
+  (interactive)
+  (if-let ((link (magit-gh--check-link-at-point)))
+      (if (string-empty-p link)
+          (user-error "No link for check at point")
+        (browse-url link))
+    (user-error "No check at point")))
+
+(defun magit-gh-pr-checks-refresh ()
+  "Refresh the PR checks buffer."
+  (interactive)
+  (let ((default-directory magit-gh-pr-checks--repo-dir))
+    (magit-gh--show-pr-checks magit-gh-pr-checks--pr-number)))
 
 ;;; Integration with Magit
 

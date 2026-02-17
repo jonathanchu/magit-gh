@@ -9,6 +9,7 @@
 Features include:
   - List pull requests in a dedicated buffer with review status (toggle between open, closed, merged, and all)
   - PR status dashboard showing PRs you created, PRs awaiting your review, and recently merged PRs
+  - PR checks/CI status with color-coded pass/fail/pending results
   - View a PR diff in a dedicated buffer
   - Checkout a PR branch with a single keystroke
   - View a PR in the browser
@@ -101,6 +102,7 @@ magit-gh
 └── Pull Requests
     ├── l  List PRs
     ├── s  PR status dashboard
+    ├── k  PR checks/CI status
     ├── c  Checkout PR
     ├── d  Diff PR
     └── v  View PR in browser
@@ -116,6 +118,7 @@ When you list PRs (~l~), a dedicated buffer opens showing PR number, age, title,
 | =c=     | Checkout the PR at point          |
 | =d=     | View the diff for the PR at point |
 | =v=     | Open the PR at point in browser   |
+| =k=     | View CI checks for the PR at point |
 | =t=     | Toggle state (open/closed/merged/all) |
 | =g=     | Refresh the PR list               |
 | =q=     | Close the buffer                  |
@@ -130,8 +133,19 @@ The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr statu
 | =c=     | Checkout the PR at point        |
 | =d=     | View the diff for the PR at point |
 | =v=     | Open the PR at point in browser |
+| =k=     | View CI checks for the PR at point |
 | =g=     | Refresh the status dashboard    |
 | =q=     | Close the buffer                |
+
+** PR Checks
+
+View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the transient menu to see checks for the current branch's PR, or ~k~ on a PR row in the list or status buffers. Checks are sorted with failures first, and status is color-coded (green for pass, red for fail, yellow for pending). The following keybindings are available in this buffer:
+
+| Key     | Action                            |
+|---------+-----------------------------------|
+| =v=     | Open the check's URL in browser   |
+| =g=     | Refresh the checks                |
+| =q=     | Close the buffer                  |
 
 ** Demo
 
@@ -152,7 +166,7 @@ The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr statu
   - [X] View PR diff
   - [X] PR status dashboard (created by you, review requested, recently merged)
   - [X] Age and merged columns in PR tables
-  - [ ] PR checks/CI status
+  - [X] PR checks/CI status
   - [ ] Create a new pull request
   - [ ] Merge a pull request
   - [ ] PR review (approve, request changes, comment)
