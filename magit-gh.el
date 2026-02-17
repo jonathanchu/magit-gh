@@ -732,16 +732,20 @@ and your recently merged PRs."
   "Format elapsed time between STARTED and COMPLETED ISO timestamps.
 Returns \"Xs\", \"Xm Ys\", or \"Xh Ym\".
 Returns \"--\" if either timestamp is nil."
-  (if (or (null started) (null completed)
-          (equal started "") (equal completed ""))
+  (if (or (not (stringp started)) (not (stringp completed))
+          (string-empty-p started) (string-empty-p completed)
+          (string-prefix-p "0001" started)
+          (string-prefix-p "0001" completed))
       "--"
     (let* ((start-time (encode-time (iso8601-parse started)))
            (end-time (encode-time (iso8601-parse completed)))
            (secs (floor (float-time (time-subtract end-time start-time)))))
-      (cond
-       ((< secs 60) (format "%ds" secs))
-       ((< secs 3600) (format "%dm %ds" (/ secs 60) (% secs 60)))
-       (t (format "%dh %dm" (/ secs 3600) (/ (% secs 3600) 60)))))))
+      (if (<= secs 0)
+          "--"
+        (cond
+         ((< secs 60) (format "%ds" secs))
+         ((< secs 3600) (format "%dm %ds" (/ secs 60) (% secs 60)))
+         (t (format "%dh %dm" (/ secs 3600) (/ (% secs 3600) 60))))))))
 
 (defun magit-gh--check-bucket-display (bucket)
   "Return a propertized string for check BUCKET status."
