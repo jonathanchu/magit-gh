@@ -149,7 +149,7 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
 
 ** Demo
 
-[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260216_magit_gh_demo.gif]]
+[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260218_magit_gh_demo.gif]]
 
 ** Customization
 
