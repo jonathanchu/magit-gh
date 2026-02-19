@@ -114,6 +114,8 @@ When you list PRs (~l~), a dedicated buffer opens showing PR number, age, title,
 
 | Key     | Action                            |
 |---------+-----------------------------------|
+| =n=     | Move to next PR                   |
+| =p=     | Move to previous PR               |
 | =RET=   | Checkout the PR at point          |
 | =c=     | Checkout the PR at point          |
 | =d=     | View the diff for the PR at point |
@@ -129,6 +131,8 @@ The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr statu
 
 | Key     | Action                          |
 |---------+---------------------------------|
+| =n=     | Move to next PR                 |
+| =p=     | Move to previous PR             |
 | =RET=   | Checkout the PR at point        |
 | =c=     | Checkout the PR at point        |
 | =d=     | View the diff for the PR at point |
@@ -143,6 +147,8 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
 
 | Key     | Action                            |
 |---------+-----------------------------------|
+| =n=     | Move to next check                |
+| =p=     | Move to previous check            |
 | =v=     | Open the check's URL in browser   |
 | =g=     | Refresh the checks                |
 | =q=     | Close the buffer                  |

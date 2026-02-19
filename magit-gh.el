@@ -118,6 +118,8 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
     (define-key map (kbd "d") #'magit-gh-pr-list-diff)
     (define-key map (kbd "v") #'magit-gh-pr-list-browse)
     (define-key map (kbd "k") #'magit-gh-pr-list-checks)
+    (define-key map (kbd "n") #'magit-gh--next-item)
+    (define-key map (kbd "p") #'magit-gh--previous-item)
     (define-key map (kbd "t") #'magit-gh-pr-list-cycle-state)
     (define-key map (kbd "g") #'magit-gh-pr-list-refresh)
     map)
@@ -181,6 +183,36 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
   '((t :inherit magit-dimmed))
   "Face for age and merged columns in the PR list."
   :group 'magit-gh)
+
+;;; Navigation
+
+(defun magit-gh--next-item ()
+  "Move point to the next item row."
+  (interactive)
+  (let ((start (point))
+        (prop (if (derived-mode-p 'magit-gh-pr-checks-mode)
+                  'magit-gh-check-link
+                'magit-gh-pr-number)))
+    (forward-line 1)
+    (while (and (not (eobp))
+                (not (get-text-property (line-beginning-position) prop)))
+      (forward-line 1))
+    (unless (get-text-property (line-beginning-position) prop)
+      (goto-char start))))
+
+(defun magit-gh--previous-item ()
+  "Move point to the previous item row."
+  (interactive)
+  (let ((start (point))
+        (prop (if (derived-mode-p 'magit-gh-pr-checks-mode)
+                  'magit-gh-check-link
+                'magit-gh-pr-number)))
+    (forward-line -1)
+    (while (and (not (bobp))
+                (not (get-text-property (line-beginning-position) prop)))
+      (forward-line -1))
+    (unless (get-text-property (line-beginning-position) prop)
+      (goto-char start))))
 
 ;;; Helper functions
 
@@ -420,7 +452,7 @@ When SHOW-MERGED-COL is non-nil, append the merged age at end of row."
 (defun magit-gh-pr-list--update-header-line ()
   "Update the header line to reflect the current state filter."
   (setq-local header-line-format
-              " c:checkout  d:diff  v:browse  k:checks  t:toggle state  g:refresh  q:quit"))
+              " n/p:navigate  c:checkout  d:diff  v:browse  k:checks  t:toggle state  g:refresh  q:quit"))
 
 (defun magit-gh-pr-list--state-indicator (active-state)
   "Return a propertized state indicator string for ACTIVE-STATE.
@@ -493,6 +525,8 @@ Highlights the active state and dims the others."
     (define-key map (kbd "d") #'magit-gh-pr-status-diff)
     (define-key map (kbd "v") #'magit-gh-pr-status-browse)
     (define-key map (kbd "k") #'magit-gh-pr-status-checks)
+    (define-key map (kbd "n") #'magit-gh--next-item)
+    (define-key map (kbd "p") #'magit-gh--previous-item)
     (define-key map (kbd "g") #'magit-gh-pr-status-refresh)
     map)
   "Keymap for `magit-gh-pr-status-mode'.")
@@ -509,7 +543,8 @@ Highlights the active state and dims the others."
   (setq-local header-line-format
               (substitute-command-keys
                "\\<magit-gh-pr-status-mode-map>\
- \\[magit-gh-pr-status-checkout]:checkout  \
+ \\[magit-gh--next-item]/\\[magit-gh--previous-item]:navigate  \
+\\[magit-gh-pr-status-checkout]:checkout  \
 \\[magit-gh-pr-status-diff]:diff  \
 \\[magit-gh-pr-status-browse]:browse  \
 \\[magit-gh-pr-status-checks]:checks  \
@@ -713,6 +748,8 @@ and your recently merged PRs."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "v") #'magit-gh-pr-checks-browse)
+    (define-key map (kbd "n") #'magit-gh--next-item)
+    (define-key map (kbd "p") #'magit-gh--previous-item)
     (define-key map (kbd "g") #'magit-gh-pr-checks-refresh)
     map)
   "Keymap for `magit-gh-pr-checks-mode'.")
@@ -725,7 +762,7 @@ and your recently merged PRs."
 \\[magit-gh-pr-checks-refresh] - Refresh the checks
 \\[quit-window] - Close the buffer"
   :group 'magit-gh
-  (setq-local header-line-format " v:browse  g:refresh  q:quit")
+  (setq-local header-line-format " n/p:navigate  v:browse  g:refresh  q:quit")
   (hl-line-mode 1))
 
 ;;; PR Checks Helper Functions
