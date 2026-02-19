@@ -452,7 +452,7 @@ When SHOW-MERGED-COL is non-nil, append the merged age at end of row."
 (defun magit-gh-pr-list--update-header-line ()
   "Update the header line to reflect the current state filter."
   (setq-local header-line-format
-              " c:checkout  d:diff  v:browse  k:checks  t:toggle state  g:refresh  q:quit"))
+              " n/p:navigate  c:checkout  d:diff  v:browse  k:checks  t:toggle state  g:refresh  q:quit"))
 
 (defun magit-gh-pr-list--state-indicator (active-state)
   "Return a propertized state indicator string for ACTIVE-STATE.
@@ -543,7 +543,8 @@ Highlights the active state and dims the others."
   (setq-local header-line-format
               (substitute-command-keys
                "\\<magit-gh-pr-status-mode-map>\
- \\[magit-gh-pr-status-checkout]:checkout  \
+ \\[magit-gh--next-item]/\\[magit-gh--previous-item]:navigate  \
+\\[magit-gh-pr-status-checkout]:checkout  \
 \\[magit-gh-pr-status-diff]:diff  \
 \\[magit-gh-pr-status-browse]:browse  \
 \\[magit-gh-pr-status-checks]:checks  \
@@ -761,7 +762,7 @@ and your recently merged PRs."
 \\[magit-gh-pr-checks-refresh] - Refresh the checks
 \\[quit-window] - Close the buffer"
   :group 'magit-gh
-  (setq-local header-line-format " v:browse  g:refresh  q:quit")
+  (setq-local header-line-format " n/p:navigate  v:browse  g:refresh  q:quit")
   (hl-line-mode 1))
 
 ;;; PR Checks Helper Functions
