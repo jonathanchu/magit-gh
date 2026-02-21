@@ -99,6 +99,7 @@ Set this variable before loading the package to use a custom key."
    ("k" "PR checks/CI status" magit-gh-pr-checks)]
   ["Actions"
    ("c" "Checkout PR" magit-gh-pr-checkout)
+   ("w" "Create PR (web)" magit-gh-pr-create)
    ("v" "View PR in browser" magit-gh-pr-view)])
 
 ;;; PR List Buffer Mode
@@ -361,6 +362,16 @@ Returns \"\" for nil input."
        ((< days 60) (format "%dw" (floor (/ days 7))))
        ((< days 365) (format "%dmo" (floor (/ days 30))))
        (t (format "%dy" (floor (/ days 365))))))))
+
+(defun magit-gh--default-branch ()
+  "Return the default branch name of the current GitHub repository."
+  (let* ((default-directory (magit-gh--repo-dir))
+         (output (string-trim
+                  (shell-command-to-string
+                   "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'"))))
+    (if (string-empty-p output)
+        "main"
+      output)))
 
 (defun magit-gh--pr-choices (prs)
   "Build an alist of display strings to PR numbers from PRS."
@@ -735,6 +746,33 @@ and your recently merged PRs."
     (when number
       (let ((default-directory (magit-gh--repo-dir)))
         (shell-command (format "gh pr view %d --web" number))))))
+
+(defun magit-gh-pr-create ()
+  "Create a pull request for the current branch, finishing on the web.
+Prompts for the base branch with the repository default pre-filled,
+then opens the GitHub PR creation page in the browser."
+  (interactive)
+  (magit-gh--check-gh)
+  (let* ((default-directory (magit-gh--repo-dir))
+         (current-branch (magit-get-current-branch))
+         (default-base (magit-gh--default-branch)))
+    (unless current-branch
+      (user-error "Not on any branch (detached HEAD)"))
+    (let ((base (completing-read
+                 (format "Create PR: %s → " current-branch)
+                 (magit-list-branch-names)
+                 nil nil default-base)))
+      (when (equal current-branch base)
+        (user-error "Head and base branch cannot be the same"))
+      (message "Opening PR creation for %s → %s..." current-branch base)
+      (let ((exit-code (call-process-shell-command
+                        (format "gh pr create --base %s --web"
+                                (shell-quote-argument base))
+                        nil "*magit-gh-output*" nil)))
+        (if (= exit-code 0)
+            (message "PR creation opened in browser for %s → %s"
+                     current-branch base)
+          (user-error "Failed to create PR; see *magit-gh-output* buffer"))))))
 
 ;;; PR Checks Buffer Mode
 

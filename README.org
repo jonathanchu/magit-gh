@@ -12,6 +12,7 @@ Features include:
   - PR checks/CI status with color-coded pass/fail/pending results
   - View a PR diff in a dedicated buffer
   - Checkout a PR branch with a single keystroke
+  - Create a new pull request (opens GitHub in the browser)
   - View a PR in the browser
 
 * Why not Forge?
@@ -99,12 +100,15 @@ The Transient menu is organized into Pull Request commands:
 
 #+begin_example
 magit-gh
-└── Pull Requests
-    ├── l  List PRs
-    ├── s  PR status dashboard
-    ├── k  PR checks/CI status
+├── Overview
+│   ├── l  List PRs
+│   └── s  PR status dashboard
+├── Inspect
+│   ├── d  Diff PR
+│   └── k  PR checks/CI status
+└── Actions
     ├── c  Checkout PR
-    ├── d  Diff PR
+    ├── w  Create PR (web)
     └── v  View PR in browser
 #+end_example
 
@@ -173,8 +177,7 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
   - [X] PR status dashboard (created by you, review requested, recently merged)
   - [X] Age and merged columns in PR tables
   - [X] PR checks/CI status
-  - [ ] Create a new pull request
-  - [ ] Merge a pull request
+  - [X] Create a new pull request
   - [ ] PR review (approve, request changes, comment)
   - [ ] View and monitor workflow runs
   - [ ] List issues
