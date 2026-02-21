@@ -96,7 +96,8 @@ Set this variable before loading the package to use a custom key."
    ("s" "PR status dashboard" magit-gh-pr-status)]
   ["Inspect"
    ("d" "Diff PR" magit-gh-pr-diff)
-   ("k" "PR checks/CI status" magit-gh-pr-checks)]
+   ("k" "PR checks/CI status" magit-gh-pr-checks)
+   ("a" "Actions (workflow runs)" magit-gh-actions)]
   ["Actions"
    ("c" "Checkout PR" magit-gh-pr-checkout)
    ("w" "Create PR (web)" magit-gh-pr-create)
@@ -191,9 +192,10 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
   "Move point to the next item row."
   (interactive)
   (let ((start (point))
-        (prop (if (derived-mode-p 'magit-gh-pr-checks-mode)
-                  'magit-gh-check-link
-                'magit-gh-pr-number)))
+        (prop (cond
+               ((derived-mode-p 'magit-gh-pr-checks-mode) 'magit-gh-check-link)
+               ((derived-mode-p 'magit-gh-actions-mode) 'magit-gh-run-url)
+               (t 'magit-gh-pr-number))))
     (forward-line 1)
     (while (and (not (eobp))
                 (not (get-text-property (line-beginning-position) prop)))
@@ -205,9 +207,10 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
   "Move point to the previous item row."
   (interactive)
   (let ((start (point))
-        (prop (if (derived-mode-p 'magit-gh-pr-checks-mode)
-                  'magit-gh-check-link
-                'magit-gh-pr-number)))
+        (prop (cond
+               ((derived-mode-p 'magit-gh-pr-checks-mode) 'magit-gh-check-link)
+               ((derived-mode-p 'magit-gh-actions-mode) 'magit-gh-run-url)
+               (t 'magit-gh-pr-number))))
     (forward-line -1)
     (while (and (not (bobp))
                 (not (get-text-property (line-beginning-position) prop)))
@@ -997,6 +1000,149 @@ If NUMBER is nil, show checks for the current branch's PR."
   (interactive)
   (let ((default-directory magit-gh-pr-checks--repo-dir))
     (magit-gh--show-pr-checks magit-gh-pr-checks--pr-number)))
+
+;;; Actions (Workflow Runs) Buffer Mode
+
+(defvar-local magit-gh-actions--repo-dir nil
+  "The repository directory for the current actions buffer.")
+
+(defvar magit-gh-actions-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "v") #'magit-gh-actions-browse)
+    (define-key map (kbd "n") #'magit-gh--next-item)
+    (define-key map (kbd "p") #'magit-gh--previous-item)
+    (define-key map (kbd "g") #'magit-gh-actions-refresh)
+    map)
+  "Keymap for `magit-gh-actions-mode'.")
+
+(define-derived-mode magit-gh-actions-mode special-mode "GH-Actions"
+  "Major mode for viewing GitHub Actions workflow runs.
+
+\\<magit-gh-actions-mode-map>\
+\\[magit-gh-actions-browse] - Open the run at point in browser
+\\[magit-gh-actions-refresh] - Refresh the workflow runs
+\\[quit-window] - Close the buffer"
+  :group 'magit-gh
+  (setq-local header-line-format " n/p:navigate  v:browse  g:refresh  q:quit")
+  (hl-line-mode 1))
+
+;;; Actions Helper Functions
+
+(defun magit-gh--run-status-display (status conclusion)
+  "Return a propertized string for workflow run STATUS and CONCLUSION."
+  (if (equal status "completed")
+      (pcase conclusion
+        ("success"
+         (propertize "success" 'face 'magit-gh-pr-review-approved))
+        ((or "failure" "cancelled")
+         (propertize conclusion 'face 'magit-gh-pr-review-changes-requested))
+        ("skipped"
+         (propertize "skipped" 'face 'magit-gh-pr-author))
+        (_
+         (propertize (or conclusion "—") 'face 'magit-gh-pr-author)))
+    (propertize (or status "—") 'face 'magit-gh-pr-review-pending)))
+
+(defun magit-gh--run-url-at-point ()
+  "Get the workflow run URL from the text property at point."
+  (get-text-property (line-beginning-position) 'magit-gh-run-url))
+
+;;; Actions Rendering
+
+(defun magit-gh-actions--insert-row (run)
+  "Insert a single row for workflow RUN alist into the current buffer."
+  (let* ((status (or (alist-get 'status run) ""))
+         (conclusion (alist-get 'conclusion run))
+         (name (or (alist-get 'name run) ""))
+         (branch (or (alist-get 'headBranch run) ""))
+         (event (or (alist-get 'event run) ""))
+         (created-at (alist-get 'createdAt run))
+         (age (magit-gh--format-age created-at))
+         (url (or (alist-get 'url run) ""))
+         (status-display (magit-gh--run-status-display status conclusion))
+         (name-display (if (> (length name) 30)
+                           (concat (substring name 0 27) "...")
+                         name))
+         (branch-display (if (> (length branch) 25)
+                             (concat (substring branch 0 22) "...")
+                           branch))
+         (start (point)))
+    (insert (format "%-14s " status-display)
+            (propertize (format "%-32s " name-display)
+                        'face 'magit-gh-pr-title)
+            (propertize (format "%-27s " branch-display)
+                        'face 'magit-gh-pr-branch)
+            (propertize (format "%-16s " event)
+                        'face 'magit-gh-pr-author)
+            (propertize age 'face 'magit-gh-pr-age)
+            "\n")
+    (put-text-property start (point) 'magit-gh-run-url url)))
+
+(defun magit-gh-actions--render (buf data)
+  "Insert workflow run DATA into BUF."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "Actions" 'face 'magit-gh-header) "\n\n")
+        (if (null data)
+            (insert (propertize "No workflow runs found."
+                                'face 'magit-gh-pr-author))
+          (insert (propertize (format "%-14s %-32s %-27s %-16s %s"
+                                      "Status" "Workflow" "Branch"
+                                      "Event" "Age")
+                              'face 'magit-gh-header)
+                  "\n")
+          (insert (propertize (make-string 96 ?─) 'face 'magit-gh-header)
+                  "\n")
+          (dolist (run data)
+            (magit-gh-actions--insert-row run)))
+        (goto-char (point-min))
+        (when data (forward-line 4))))))
+
+;;; Actions Commands
+
+(defun magit-gh-actions ()
+  "Show GitHub Actions for the current repository."
+  (interactive)
+  (magit-gh--check-gh)
+  (let* ((repo-dir (magit-gh--repo-dir))
+         (default-directory repo-dir)
+         (cmd "gh run list --json status,conclusion,name,headBranch,event,createdAt,url --limit 20")
+         (buf (get-buffer-create "*magit-gh: Actions*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "Loading..." 'face 'magit-gh-pr-author)))
+      (magit-gh-actions-mode)
+      (setq magit-gh-actions--repo-dir repo-dir))
+    (pop-to-buffer buf)
+    (magit-gh--async-fetch
+     cmd
+     (lambda (data)
+       (magit-gh-actions--render buf data))
+     (lambda (msg)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (insert (propertize msg
+                                'face 'magit-gh-pr-review-changes-requested)))))))))
+
+(defun magit-gh-actions-browse ()
+  "Open the workflow run at point in the browser."
+  (interactive)
+  (if-let ((url (magit-gh--run-url-at-point)))
+      (if (string-empty-p url)
+          (user-error "No URL for run at point")
+        (browse-url url))
+    (user-error "No run at point")))
+
+(defun magit-gh-actions-refresh ()
+  "Refresh the actions buffer."
+  (interactive)
+  (let ((default-directory magit-gh-actions--repo-dir))
+    (magit-gh-actions)))
 
 ;;; Integration with Magit
 

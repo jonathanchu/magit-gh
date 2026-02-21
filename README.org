@@ -10,6 +10,7 @@ Features include:
   - List pull requests in a dedicated buffer with review status (toggle between open, closed, merged, and all)
   - PR status dashboard showing PRs you created, PRs awaiting your review, and recently merged PRs
   - PR checks/CI status with color-coded pass/fail/pending results
+  - GitHub Actions workflow runs with status, workflow, branch, and event info
   - View a PR diff in a dedicated buffer
   - Checkout a PR branch with a single keystroke
   - Create a new pull request (opens GitHub in the browser)
@@ -105,7 +106,8 @@ magit-gh
 │   └── s  PR status dashboard
 ├── Inspect
 │   ├── d  Diff PR
-│   └── k  PR checks/CI status
+│   ├── k  PR checks/CI status
+│   └── a  Actions (workflow runs)
 └── Actions
     ├── c  Checkout PR
     ├── w  Create PR (web)
@@ -157,6 +159,18 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
 | =g=     | Refresh the checks                |
 | =q=     | Close the buffer                  |
 
+** Actions
+
+View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs across the repository with status, workflow name, branch, event trigger, and age. Status is color-coded (green for success, red for failure/cancelled, yellow for in-progress/queued). The following keybindings are available in this buffer:
+
+| Key     | Action                            |
+|---------+-----------------------------------|
+| =n=     | Move to next run                  |
+| =p=     | Move to previous run              |
+| =v=     | Open the run in browser           |
+| =g=     | Refresh the runs                  |
+| =q=     | Close the buffer                  |
+
 ** Demo
 
 [[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260218_magit_gh_demo.gif]]
@@ -178,7 +192,7 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
   - [X] Age and merged columns in PR tables
   - [X] PR checks/CI status
   - [X] Create a new pull request
-  - [ ] View and monitor workflow runs
+  - [X] View and monitor workflow runs
 
 * Contributing
 
