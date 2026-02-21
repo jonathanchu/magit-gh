@@ -99,7 +99,7 @@ Set this variable before loading the package to use a custom key."
    ("k" "PR checks/CI status" magit-gh-pr-checks)]
   ["Actions"
    ("c" "Checkout PR" magit-gh-pr-checkout)
-   ("C" "Create PR (web)" magit-gh-pr-create)
+   ("w" "Create PR (web)" magit-gh-pr-create)
    ("v" "View PR in browser" magit-gh-pr-view)])
 
 ;;; PR List Buffer Mode
