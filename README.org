@@ -173,7 +173,7 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
 
 ** Demo
 
-[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260218_magit_gh_demo.gif]]
+[[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260221_magit_gh_demo.gif]]
 
 ** Customization
 
