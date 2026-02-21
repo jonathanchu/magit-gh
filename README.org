@@ -178,7 +178,6 @@ View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the t
   - [X] Age and merged columns in PR tables
   - [X] PR checks/CI status
   - [X] Create a new pull request
-  - [ ] Merge a pull request
   - [ ] PR review (approve, request changes, comment)
   - [ ] View and monitor workflow runs
   - [ ] List issues
