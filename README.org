@@ -194,6 +194,8 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
   - [X] Create a new pull request
   - [X] View and monitor workflow runs
 
+*Note:* /This feature set represents the 1.0 release. I consider the current scope complete and intentionally avoid overlapping with [[https://github.com/magit/forge][Forge]] features. If you have ideas for additional functionality, please open an issue to discuss./
+
 * Contributing
 
 Contributions are welcome! If you'd like to help integrate additional ~gh~ CLI commands or improve existing functionality, please open a pull request.
