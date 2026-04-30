@@ -118,58 +118,58 @@ magit-gh
 
 When you list PRs (~l~), a dedicated buffer opens showing PR number, age, title, author, review status, and branch name. By default it shows open PRs, but you can toggle the state filter with ~t~ to cycle through open, closed, merged, and all. The following keybindings are available in this buffer:
 
-| Key     | Action                            |
-|---------+-----------------------------------|
-| =n=     | Move to next PR                   |
-| =p=     | Move to previous PR               |
-| =RET=   | Checkout the PR at point          |
-| =c=     | Checkout the PR at point          |
-| =d=     | View the diff for the PR at point |
-| =v=     | Open the PR at point in browser   |
-| =k=     | View CI checks for the PR at point |
-| =t=     | Toggle state (open/closed/merged/all) |
-| =g=     | Refresh the PR list               |
-| =q=     | Close the buffer                  |
+| Key   | Action                                |
+|-------+---------------------------------------|
+| =n=   | Move to next PR                       |
+| =p=   | Move to previous PR                   |
+| =RET= | Checkout the PR at point              |
+| =c=   | Checkout the PR at point              |
+| =d=   | View the diff for the PR at point     |
+| =v=   | Open the PR at point in browser       |
+| =k=   | View CI checks for the PR at point    |
+| =t=   | Toggle state (open/closed/merged/all) |
+| =g=   | Refresh the PR list                   |
+| =q=   | Close the buffer                      |
 
 ** PR Status Dashboard
 
 The status dashboard (~s~) shows an overview of your PRs, mirroring =gh pr status=. It displays three sections: PRs you created, PRs awaiting your review, and recently merged PRs in the repository. All sections show an age column (days since creation), and the "Recently merged" section adds a merged column showing time since merge. The following keybindings are available in this buffer:
 
-| Key     | Action                          |
-|---------+---------------------------------|
-| =n=     | Move to next PR                 |
-| =p=     | Move to previous PR             |
-| =RET=   | Checkout the PR at point        |
-| =c=     | Checkout the PR at point        |
-| =d=     | View the diff for the PR at point |
-| =v=     | Open the PR at point in browser |
-| =k=     | View CI checks for the PR at point |
-| =g=     | Refresh the status dashboard    |
-| =q=     | Close the buffer                |
+| Key   | Action                             |
+|-------+------------------------------------|
+| =n=   | Move to next PR                    |
+| =p=   | Move to previous PR                |
+| =RET= | Checkout the PR at point           |
+| =c=   | Checkout the PR at point           |
+| =d=   | View the diff for the PR at point  |
+| =v=   | Open the PR at point in browser    |
+| =k=   | View CI checks for the PR at point |
+| =g=   | Refresh the status dashboard       |
+| =q=   | Close the buffer                   |
 
 ** PR Checks
 
 View CI check results for a PR (~k~) in a dedicated buffer. Press ~k~ from the transient menu to see checks for the current branch's PR, or ~k~ on a PR row in the list or status buffers. Checks are sorted with failures first, and status is color-coded (green for pass, red for fail, yellow for pending). The following keybindings are available in this buffer:
 
-| Key     | Action                            |
-|---------+-----------------------------------|
-| =n=     | Move to next check                |
-| =p=     | Move to previous check            |
-| =v=     | Open the check's URL in browser   |
-| =g=     | Refresh the checks                |
-| =q=     | Close the buffer                  |
+| Key | Action                          |
+|-----+---------------------------------|
+| =n= | Move to next check              |
+| =p= | Move to previous check          |
+| =v= | Open the check's URL in browser |
+| =g= | Refresh the checks              |
+| =q= | Close the buffer                |
 
 ** Actions
 
 View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs across the repository with status, workflow name, branch, event trigger, and age. Status is color-coded (green for success, red for failure/cancelled, yellow for in-progress/queued). The following keybindings are available in this buffer:
 
-| Key     | Action                            |
-|---------+-----------------------------------|
-| =n=     | Move to next run                  |
-| =p=     | Move to previous run              |
-| =v=     | Open the run in browser           |
-| =g=     | Refresh the runs                  |
-| =q=     | Close the buffer                  |
+| Key | Action                  |
+|-----+-------------------------|
+| =n= | Move to next run        |
+| =p= | Move to previous run    |
+| =v= | Open the run in browser |
+| =g= | Refresh the runs        |
+| =q= | Close the buffer        |
 
 ** Demo
 
@@ -177,10 +177,10 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
 
 ** Customization
 
-| Variable            | Default | Description                              |
-|---------------------+---------+------------------------------------------|
-| =magit-gh-key=      | =,=     | Key to bind ~magit-gh~ in Magit buffers  |
-| =magit-gh-pr-limit= | =30=    | Maximum number of PRs to fetch           |
+| Variable            | Default | Description                             |
+|---------------------+---------+-----------------------------------------|
+| =magit-gh-key=      | =,=     | Key to bind ~magit-gh~ in Magit buffers |
+| =magit-gh-pr-limit= | =30=    | Maximum number of PRs to fetch          |
 
 * Feature Status
 
