@@ -26,8 +26,9 @@
 ;;; Commentary:
 
 ;; A lightweight GitHub CLI (gh) integration for Magit.
-;; Provides commands to list and checkout pull requests
-;; using the `gh` CLI tool (https://cli.github.com).
+;; Provides commands to list and checkout pull requests and to
+;; work with repositories (view, list, fork, create, sync, and
+;; set-default) using the `gh' CLI tool (https://cli.github.com).
 ;;
 ;; Usage:
 ;;   Press ",'" in Magit buffers to open the GitHub CLI menu.
@@ -101,7 +102,15 @@ Set this variable before loading the package to use a custom key."
   ["Actions"
    ("c" "Checkout PR" magit-gh-pr-checkout)
    ("w" "Create PR (web)" magit-gh-pr-create)
-   ("v" "View PR in browser" magit-gh-pr-view)])
+   ("v" "View PR in browser" magit-gh-pr-view)]
+  ["Repository"
+   ("R" "View repo info" magit-gh-repo-view)
+   ("L" "List repos" magit-gh-repo-list)
+   ("o" "Open repo in browser" magit-gh-repo-browse)
+   ("F" "Fork repo" magit-gh-repo-fork)
+   ("N" "New repo (web)" magit-gh-repo-create)
+   ("S" "Sync fork" magit-gh-repo-sync)
+   ("D" "Set default repo" magit-gh-repo-set-default)])
 
 ;;; PR List Buffer Mode
 
@@ -188,14 +197,17 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
 
 ;;; Navigation
 
+(defvar-local magit-gh--navigation-property 'magit-gh-pr-number
+  "Text property identifying navigable item rows in the current buffer.
+`magit-gh--next-item' and `magit-gh--previous-item' move between
+lines carrying this property.  Each major mode sets it to the
+property its rows are tagged with.")
+
 (defun magit-gh--next-item ()
   "Move point to the next item row."
   (interactive)
   (let ((start (point))
-        (prop (cond
-               ((derived-mode-p 'magit-gh-pr-checks-mode) 'magit-gh-check-link)
-               ((derived-mode-p 'magit-gh-actions-mode) 'magit-gh-run-url)
-               (t 'magit-gh-pr-number))))
+        (prop magit-gh--navigation-property))
     (forward-line 1)
     (while (and (not (eobp))
                 (not (get-text-property (line-beginning-position) prop)))
@@ -207,10 +219,7 @@ One of \"open\", \"closed\", \"merged\", or \"all\".")
   "Move point to the previous item row."
   (interactive)
   (let ((start (point))
-        (prop (cond
-               ((derived-mode-p 'magit-gh-pr-checks-mode) 'magit-gh-check-link)
-               ((derived-mode-p 'magit-gh-actions-mode) 'magit-gh-run-url)
-               (t 'magit-gh-pr-number))))
+        (prop magit-gh--navigation-property))
     (forward-line -1)
     (while (and (not (bobp))
                 (not (get-text-property (line-beginning-position) prop)))
@@ -804,6 +813,7 @@ then opens the GitHub PR creation page in the browser."
 \\[quit-window] - Close the buffer"
   :group 'magit-gh
   (setq-local header-line-format " n/p:navigate  v:browse  g:refresh  q:quit")
+  (setq-local magit-gh--navigation-property 'magit-gh-check-link)
   (hl-line-mode 1))
 
 ;;; PR Checks Helper Functions
@@ -1025,6 +1035,7 @@ If NUMBER is nil, show checks for the current branch's PR."
 \\[quit-window] - Close the buffer"
   :group 'magit-gh
   (setq-local header-line-format " n/p:navigate  v:browse  g:refresh  q:quit")
+  (setq-local magit-gh--navigation-property 'magit-gh-run-url)
   (hl-line-mode 1))
 
 ;;; Actions Helper Functions

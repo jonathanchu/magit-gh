@@ -15,6 +15,9 @@ Features include:
   - Checkout a PR branch with a single keystroke
   - Create a new pull request (opens GitHub in the browser)
   - View a PR in the browser
+  - View repository information in a dedicated buffer
+  - List an owner's repositories
+  - Fork, create, and sync repositories, and set the default repository for ~gh~
 
 * Why not Forge?
 
@@ -97,7 +100,7 @@ To increase the number of PRs fetched (default 30):
   (magit-gh-pr-limit 50))
 #+end_src
 
-The Transient menu is organized into Pull Request commands:
+The Transient menu is organized into Pull Request and Repository commands:
 
 #+begin_example
 magit-gh
@@ -108,10 +111,18 @@ magit-gh
 │   ├── d  Diff PR
 │   ├── k  PR checks/CI status
 │   └── a  Actions (workflow runs)
-└── Actions
-    ├── c  Checkout PR
-    ├── w  Create PR (web)
-    └── v  View PR in browser
+├── Actions
+│   ├── c  Checkout PR
+│   ├── w  Create PR (web)
+│   └── v  View PR in browser
+└── Repository
+    ├── R  View repo info
+    ├── L  List repos
+    ├── o  Open repo in browser
+    ├── F  Fork repo
+    ├── N  New repo
+    ├── S  Sync fork
+    └── D  Set default repo
 #+end_example
 
 ** PR List Buffer
@@ -171,16 +182,59 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
 | =g= | Refresh the runs        |
 | =q= | Close the buffer        |
 
+** Repository Commands
+
+The *Repository* group wraps the ~gh repo~ subcommands. Commands that can act on a repository other than the current one accept an optional =[owner/]repo= argument: invoke them with a prefix argument (=C-u=) to be prompted for a target, or run them directly to act on the current repository.
+
+| Key | Action                                                        |
+|-----+---------------------------------------------------------------|
+| =R= | View repo info (=C-u= for another repo)                       |
+| =L= | List an owner's repositories                                  |
+| =o= | Open the repo in the browser (=C-u= for another repo)         |
+| =F= | Fork the current repo (=C-u= to also add a git remote)        |
+| =N= | Create a new repository                                       |
+| =S= | Sync a fork with its upstream (=C-u= for another repo)        |
+| =D= | Set the default repo (=C-u= to view the current default)      |
+
+Notes:
+
+- *View repo info* (~R~) opens a dedicated buffer showing visibility, default branch, stars, forks, upstream (for forks), topics, and URLs.
+- *Fork* (~F~) forks the current repository on GitHub without cloning it or modifying your local git remotes. With a prefix argument (=C-u=) it also adds a git remote for the fork, setting it as =origin= and renaming any existing =origin= remote to =upstream= (the default ~gh repo fork~ behavior).
+- *New repo* (~N~) creates the repository non-interactively: it prompts for a name, visibility, and an optional description.
+- *Set default repo* (~D~) offers the GitHub remotes of the current repository as completion candidates. This configures which repository ~gh~ targets, and is often needed before other ~gh~ commands work in a repository with multiple remotes.
+
+*** Repo Info Buffer
+
+| Key   | Action                            |
+|-------+-----------------------------------|
+| =v=   | Open the repository in browser    |
+| =o=   | Open the repository in browser    |
+| =g=   | Refresh the repository info       |
+| =q=   | Close the buffer                  |
+
+*** Repo List Buffer
+
+| Key   | Action                              |
+|-------+-------------------------------------|
+| =n=   | Move to next repository             |
+| =p=   | Move to previous repository         |
+| =RET= | View info for the repository at point |
+| =v=   | Open the repository at point in browser |
+| =o=   | Open the repository at point in browser |
+| =g=   | Refresh the repository list         |
+| =q=   | Close the buffer                    |
+
 ** Demo
 
 [[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260221_magit_gh_demo.gif]]
 
 ** Customization
 
-| Variable            | Default | Description                             |
-|---------------------+---------+-----------------------------------------|
-| =magit-gh-key=      | =,=     | Key to bind ~magit-gh~ in Magit buffers |
-| =magit-gh-pr-limit= | =30=    | Maximum number of PRs to fetch          |
+| Variable              | Default | Description                              |
+|-----------------------+---------+------------------------------------------|
+| =magit-gh-key=        | =,=     | Key to bind ~magit-gh~ in Magit buffers  |
+| =magit-gh-pr-limit=   | =30=    | Maximum number of PRs to fetch           |
+| =magit-gh-repo-limit= | =30=    | Maximum number of repositories to fetch  |
 
 * Feature Status
 
