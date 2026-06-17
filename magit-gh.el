@@ -105,7 +105,7 @@ Set this variable before loading the package to use a custom key."
    ("L" "List repos" magit-gh-repo-list)
    ("o" "Open repo in browser" magit-gh-repo-browse)
    ("F" "Fork repo" magit-gh-repo-fork)
-   ("N" "New repo (web)" magit-gh-repo-create)
+   ("N" "New repo" magit-gh-repo-create)
    ("S" "Sync fork" magit-gh-repo-sync)
    ("D" "Set default repo" magit-gh-repo-set-default)])
 

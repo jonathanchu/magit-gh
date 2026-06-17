@@ -299,6 +299,9 @@ open the current repository."
 (defvar-local magit-gh-repo-list--owner nil
   "The owner whose repositories are shown in the current list buffer.")
 
+(defvar-local magit-gh-repo-list--args nil
+  "The `gh repo list' filter arguments used for the current list buffer.")
+
 (defvar magit-gh-repo-list-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
@@ -390,24 +393,25 @@ open the current repository."
 
 ;;; Repo List Commands
 
-;;;###autoload
-(defun magit-gh-repo-list (&optional owner)
+(defun magit-gh-repo-list--display (owner args)
   "List repositories for OWNER in a dedicated buffer.
-OWNER defaults to the owner of the current repository; when called
-interactively it is read from the minibuffer with that default."
-  (interactive
-   (list (let ((default (magit-gh--current-repo-owner)))
-           (read-string (format-prompt "List repositories for owner" default)
-                        nil nil default))))
+OWNER is an owner login, or empty for the authenticated user.
+ARGS are `gh repo list' filter switches and options.  When ARGS
+does not set a limit, `magit-gh-repo-limit' is applied."
   (magit-gh--check-gh)
   (let* ((repo-dir (magit-gh--repo-dir))
          (default-directory repo-dir)
          (owner (string-trim (or owner "")))
-         (cmd (concat "gh repo list"
-                      (unless (string-empty-p owner)
-                        (concat " " (shell-quote-argument owner)))
-                      " --json nameWithOwner,description,visibility,updatedAt,url"
-                      (format " --limit %d" magit-gh-repo-limit)))
+         (cmd (string-join
+               (append
+                (list "gh repo list")
+                (unless (string-empty-p owner)
+                  (list (shell-quote-argument owner)))
+                (list "--json nameWithOwner,description,visibility,updatedAt,url")
+                (mapcar #'shell-quote-argument args)
+                (unless (seq-find (lambda (a) (string-prefix-p "--limit" a)) args)
+                  (list (format "--limit %d" magit-gh-repo-limit))))
+               " "))
          (buf (get-buffer-create "*magit-gh: Repositories*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -415,7 +419,8 @@ interactively it is read from the minibuffer with that default."
         (insert (propertize "Loading..." 'face 'magit-gh-pr-author)))
       (magit-gh-repo-list-mode)
       (setq magit-gh-repo-list--repo-dir repo-dir)
-      (setq magit-gh-repo-list--owner owner))
+      (setq magit-gh-repo-list--owner owner)
+      (setq magit-gh-repo-list--args args))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
      cmd
@@ -427,6 +432,33 @@ interactively it is read from the minibuffer with that default."
              (erase-buffer)
              (insert (propertize msg
                                  'face 'magit-gh-pr-review-changes-requested)))))))))
+
+(defun magit-gh-repo-list-execute (args)
+  "List repositories, reading the owner and using transient ARGS.
+The owner defaults to the owner of the current repository."
+  (interactive (list (transient-args 'magit-gh-repo-list)))
+  (magit-gh--check-gh)
+  (let* ((default (magit-gh--current-repo-owner))
+         (owner (read-string
+                 (format-prompt "List repositories for owner" default)
+                 nil nil default)))
+    (magit-gh-repo-list--display owner args)))
+
+;;;###autoload (autoload 'magit-gh-repo-list "magit-gh-repo" nil t)
+(transient-define-prefix magit-gh-repo-list ()
+  "List GitHub repositories for an owner."
+  ["Filters"
+   ("-v" "Visibility" "--visibility="
+    :choices ("public" "private" "internal"))
+   ("-l" "Primary language" "--language=")
+   ("-t" "Topic" "--topic=")
+   ("-f" "Only forks" "--fork")
+   ("-s" "Only sources (non-forks)" "--source")
+   ("-a" "Only archived" "--archived")
+   ("-A" "Omit archived" "--no-archived")
+   ("-L" "Limit" "--limit=")]
+  ["Action"
+   ("l" "List" magit-gh-repo-list-execute)])
 
 (defun magit-gh-repo-list-view ()
   "View info for the repository at point in the repo list buffer."
@@ -449,60 +481,86 @@ interactively it is read from the minibuffer with that default."
   "Refresh the repository list buffer."
   (interactive)
   (let ((default-directory magit-gh-repo-list--repo-dir))
-    (magit-gh-repo-list magit-gh-repo-list--owner)))
+    (magit-gh-repo-list--display magit-gh-repo-list--owner
+                                 magit-gh-repo-list--args)))
 
 ;;; Repo Action Commands
 
-;;;###autoload
-(defun magit-gh-repo-fork (&optional add-remote)
+(defun magit-gh-repo-fork-execute (args)
   "Fork the current repository on GitHub.
-By default the fork is created on GitHub without cloning it or
-modifying your local git remotes.  With a prefix argument
-\(ADD-REMOTE non-nil), also add a git remote for the fork, which
-sets the fork as the `origin' remote and renames any existing
-`origin' to `upstream' (the default `gh repo fork' behavior)."
-  (interactive "P")
+ARGS are the `gh repo fork' switches and options collected by the
+`magit-gh-repo-fork' transient.  By default the fork is created on
+GitHub without cloning it or modifying your local git remotes.
+Enabling \"Add a git remote\" sets the fork as the `origin' remote
+and renames any existing `origin' to `upstream'."
+  (interactive (list (transient-args 'magit-gh-repo-fork)))
   (magit-gh--check-gh)
   (let ((default-directory (magit-gh--repo-dir)))
-    (when (y-or-n-p (if add-remote
-                        "Fork the current repository and add a git remote? "
-                      "Fork the current repository? "))
-      (message "Forking the current repository...")
-      (magit-gh--run-reporting
-       (concat "gh repo fork --clone=false "
-               (if add-remote "--remote=true" "--remote=false"))
-       (if add-remote
-           "Forked the current repository and added a remote"
-         "Forked the current repository")
-       "Failed to fork the current repository"))))
+    (message "Forking the current repository...")
+    (magit-gh--run-reporting
+     (string-join (cons "gh repo fork"
+                        (mapcar #'shell-quote-argument args))
+                  " ")
+     "Forked the current repository"
+     "Failed to fork the current repository")))
 
-;;;###autoload
-(defun magit-gh-repo-create (name visibility description)
-  "Create a new GitHub repository NAME with VISIBILITY and DESCRIPTION.
-NAME may be \"owner/name\" or just \"name\" (defaulting to the
-authenticated user).  VISIBILITY is one of \"public\", \"private\",
-or \"internal\".  DESCRIPTION may be empty."
-  (interactive
-   (let ((name (read-string "New repository name (owner/name or name): "))
-         (visibility (completing-read "Visibility: "
-                                      '("public" "private" "internal")
-                                      nil t "private"))
-         (description (read-string "Description (optional): ")))
-     (list name visibility description)))
+;;;###autoload (autoload 'magit-gh-repo-fork "magit-gh-repo" nil t)
+(transient-define-prefix magit-gh-repo-fork ()
+  "Fork the current repository on GitHub."
+  ["Fork options"
+   ("-c" "Clone the fork" "--clone")
+   ("-r" "Add a git remote" "--remote")
+   ("-n" "Remote name" "--remote-name=")
+   ("-f" "Rename the fork" "--fork-name=")
+   ("-o" "Create the fork in an organization" "--org=")
+   ("-b" "Only include the default branch" "--default-branch-only")]
+  ["Action"
+   ("f" "Fork" magit-gh-repo-fork-execute)])
+
+(transient-define-argument magit-gh-repo-create--visibility ()
+  "Visibility switch for the `magit-gh-repo-create' transient."
+  :class 'transient-switches
+  :description "Visibility"
+  :key "-V"
+  :argument-format "--%s"
+  :argument-regexp "\\(--\\(public\\|private\\|internal\\)\\)"
+  :choices '("public" "private" "internal")
+  :init-value (lambda (obj) (oset obj value "--private")))
+
+(defun magit-gh-repo-create-execute (args)
+  "Create a new GitHub repository.
+ARGS are the `gh repo create' switches and options collected by
+the `magit-gh-repo-create' transient.  The repository name is read
+interactively; it may be \"owner/name\" or just \"name\" (defaulting
+to the authenticated user)."
+  (interactive (list (transient-args 'magit-gh-repo-create)))
   (magit-gh--check-gh)
-  (let ((name (string-trim name))
-        (description (string-trim description)))
+  (let ((name (string-trim
+               (read-string "New repository name (owner/name or name): "))))
     (when (string-empty-p name)
       (user-error "Repository name is required"))
     (message "Creating repository %s..." name)
     (magit-gh--run-reporting
-     (concat "gh repo create "
-             (shell-quote-argument name)
-             " --" visibility
-             (unless (string-empty-p description)
-               (concat " --description " (shell-quote-argument description))))
+     (string-join (append (list "gh repo create" (shell-quote-argument name))
+                          (mapcar #'shell-quote-argument args))
+                  " ")
      (format "Created repository %s" name)
      (format "Failed to create repository %s" name))))
+
+;;;###autoload (autoload 'magit-gh-repo-create "magit-gh-repo" nil t)
+(transient-define-prefix magit-gh-repo-create ()
+  "Create a new GitHub repository."
+  ["Repository options"
+   (magit-gh-repo-create--visibility)
+   ("-d" "Description" "--description=")
+   ("-h" "Home page URL" "--homepage=")
+   ("-g" "Gitignore template" "--gitignore=")
+   ("-l" "License" "--license=")]
+  ["After creating"
+   ("-c" "Clone the new repository" "--clone")
+   ("-a" "Add a README file" "--add-readme")]
+  ["Action"
+   ("c" "Create" magit-gh-repo-create-execute)])
 
 ;;;###autoload
 (defun magit-gh-repo-sync (&optional target)
