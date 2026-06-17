@@ -101,13 +101,13 @@ Set this variable before loading the package to use a custom key."
    ("w" "Create PR (web)" magit-gh-pr-create)
    ("v" "View PR in browser" magit-gh-pr-view)]
   ["Repository"
-   ("R" "View repo info" magit-gh-repo-view)
+   ("i" "View repo info  (C-u: other repo)" magit-gh-repo-view)
    ("L" "List repos" magit-gh-repo-list)
-   ("o" "Open repo in browser" magit-gh-repo-browse)
-   ("F" "Fork repo" magit-gh-repo-fork)
-   ("N" "New repo" magit-gh-repo-create)
-   ("S" "Sync fork" magit-gh-repo-sync)
-   ("D" "Set default repo" magit-gh-repo-set-default)])
+   ("o" "Open in browser (C-u: other repo)" magit-gh-repo-browse)
+   ("f" "Fork repo" magit-gh-repo-fork)
+   ("n" "New repo" magit-gh-repo-create)
+   ("S" "Sync fork      (C-u: other repo)" magit-gh-repo-sync)
+   ("D" "Set default    (C-u: view current)" magit-gh-repo-set-default)])
 
 ;;; PR List Buffer Mode
 
