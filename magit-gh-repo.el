@@ -40,7 +40,7 @@
 ;;; Code:
 
 (require 'magit)
-(require 'magit-gh)
+(require 'magit-gh-utils)
 
 ;;; Custom Variables
 
