@@ -106,7 +106,7 @@ Set this variable before loading the package to use a custom key."
    ("o" "Open in browser (C-u: other repo)" magit-gh-repo-browse)
    ("f" "Fork repo" magit-gh-repo-fork)
    ("n" "New repo" magit-gh-repo-create)
-   ("S" "Sync fork      (C-u: other repo)" magit-gh-repo-sync)
+   ("S" "Sync repo" magit-gh-repo-sync)
    ("D" "Set default    (C-u: view current)" magit-gh-repo-set-default)])
 
 ;;; PR List Buffer Mode

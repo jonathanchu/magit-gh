@@ -132,16 +132,24 @@ upstream is the usual target for `gh' commands."
 
 (defun magit-gh--run-reporting (cmd success failure)
   "Run shell CMD in `default-directory', reporting the result.
-On a zero exit code show SUCCESS as a message; otherwise signal
-FAILURE as a `user-error'.  Command output is collected in the
-*magit-gh-output* buffer."
-  (let ((buf (get-buffer-create "*magit-gh-output*")))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)))
-    (if (= (call-process-shell-command cmd nil buf nil) 0)
-        (message "%s" success)
-      (user-error "%s; see *magit-gh-output* buffer" failure))))
+CMD's standard output and error are collected in the
+*magit-gh-output* buffer.  On a zero exit code show SUCCESS,
+appending any message CMD emitted; on a non-zero exit signal a
+`user-error' built from FAILURE and that output."
+  (let* ((buf (get-buffer-create "*magit-gh-output*"))
+         (exit (with-current-buffer buf
+                 (let ((inhibit-read-only t))
+                   (erase-buffer)
+                   (call-process-shell-command cmd nil buf nil))))
+         (output (with-current-buffer buf (string-trim (buffer-string)))))
+    (if (zerop exit)
+        (if (string-empty-p output)
+            (message "%s" success)
+          (message "%s: %s" success output))
+      (user-error "%s: %s" failure
+                  (if (string-empty-p output)
+                      "see *magit-gh-output* buffer"
+                    output)))))
 
 ;;; Repo Info Buffer Mode
 
@@ -563,19 +571,37 @@ to the authenticated user)."
    ("c" "Create" magit-gh-repo-create-execute)])
 
 ;;;###autoload
-(defun magit-gh-repo-sync (&optional target)
-  "Sync a fork with its upstream repository.
-With a prefix argument, prompt for a destination [OWNER/]REPO TARGET;
-otherwise sync the current local repository from its parent."
-  (interactive (list (when current-prefix-arg (magit-gh--read-repo-target))))
+(defun magit-gh-repo-sync ()
+  "Sync a repository with its upstream using `gh repo sync'.
+Prompts to choose between two distinct operations:
+
+  - Sync local clone from upstream: fast-forward the local clone's
+    default branch from its parent.  Touches nothing on GitHub.
+
+  - Sync remote fork on GitHub: update the fork's default branch on
+    GitHub from its parent via the API.  Requires push access (and,
+    for upstream workflow changes, the `workflow' token scope)."
+  (interactive)
   (magit-gh--check-gh)
   (let* ((default-directory (magit-gh--repo-dir))
-         (label (or target "the current repository")))
-    (message "Syncing %s..." label)
-    (magit-gh--run-reporting
-     (concat "gh repo sync" (magit-gh--repo-target-arg target))
-     (format "Synced %s" label)
-     (format "Failed to sync %s" label))))
+         (nwo (car (magit-gh--repo-and-parent)))
+         (local-label "Sync local clone from upstream (no push)")
+         (remote-label (and nwo (format "Sync remote fork on GitHub (%s)" nwo)))
+         (choices (delq nil (list local-label remote-label)))
+         (choice (completing-read "Sync: " choices nil t)))
+    (cond
+     ((equal choice local-label)
+      (message "Syncing local clone from upstream...")
+      (magit-gh--run-reporting
+       "gh repo sync"
+       "Synced local clone from upstream"
+       "Failed to sync local clone"))
+     ((equal choice remote-label)
+      (message "Syncing remote fork %s on GitHub..." nwo)
+      (magit-gh--run-reporting
+       (concat "gh repo sync " (shell-quote-argument nwo))
+       (format "Synced remote fork %s" nwo)
+       (format "Failed to sync remote fork %s" nwo))))))
 
 ;;;###autoload
 (defun magit-gh-repo-set-default (repo)
