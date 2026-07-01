@@ -27,8 +27,8 @@
 
 ;; A lightweight GitHub CLI (gh) integration for Magit.
 ;; Provides commands to list and checkout pull requests and to
-;; work with repositories (view, list, fork, create, sync, and
-;; set-default) using the `gh' CLI tool (https://cli.github.com).
+;; work with repositories (view, list, fork, create, and sync)
+;; using the `gh' CLI tool (https://cli.github.com).
 ;;
 ;; Usage:
 ;;   Press ",'" in Magit buffers to open the GitHub CLI menu.
@@ -106,8 +106,7 @@ Set this variable before loading the package to use a custom key."
    ("o" "Open in browser (C-u: other repo)" magit-gh-repo-browse)
    ("f" "Fork repo" magit-gh-repo-fork)
    ("n" "New repo" magit-gh-repo-create)
-   ("S" "Sync repo" magit-gh-repo-sync)
-   ("D" "Set default    (C-u: view current)" magit-gh-repo-set-default)])
+   ("S" "Sync repo" magit-gh-repo-sync)])
 
 ;;; PR List Buffer Mode
 

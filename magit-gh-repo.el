@@ -30,7 +30,6 @@
 ;;   - Fork a repository
 ;;   - Create a new repository
 ;;   - Sync a fork with its upstream
-;;   - Set the default repository for `gh' commands
 ;;
 ;; These commands are reached from the `magit-gh' transient menu and
 ;; are loaded on demand.  Commands that can act on a repository other
@@ -80,23 +79,6 @@ Used to append an optional repository argument to a gh command."
                    "gh repo view --json owner --jq '.owner.login'"))))
     (unless (string-empty-p output) output)))
 
-(defun magit-gh--remote-nwo (url)
-  "Extract an OWNER/REPO string from a GitHub remote URL, or nil."
-  (when (and url
-             (string-match
-              "github\\.com[:/]\\([^/]+\\)/\\(.+?\\)\\(?:\\.git\\)?/?\\'" url))
-    (format "%s/%s" (match-string 1 url) (match-string 2 url))))
-
-(defun magit-gh--remote-repo-candidates ()
-  "Return a list of OWNER/REPO strings derived from the repo's remotes."
-  (let ((default-directory (magit-gh--repo-dir)))
-    (delete-dups
-     (delq nil
-           (mapcar (lambda (remote)
-                     (magit-gh--remote-nwo
-                      (magit-git-string "remote" "get-url" remote)))
-                   (magit-list-remotes))))))
-
 (defun magit-gh--repo-and-parent ()
   "Return OWNER/REPO for the current repository and its parent.
 Returns a list whose first element is the resolved repository and
@@ -115,20 +97,6 @@ Either element may be absent.  Uses a synchronous gh call."
              (pname (alist-get 'name parent))
              (parent-nwo (and powner pname (format "%s/%s" powner pname))))
         (delq nil (list nwo parent-nwo))))))
-
-(defun magit-gh--default-repo-candidates ()
-  "Return candidate OWNER/REPO strings for setting the default repository.
-Combines the current repository and its fork parent with the
-repository's GitHub remotes, mirroring the choices that
-`gh repo set-default' offers.  The fork parent, when present, is
-listed first so it serves as the default choice, since the
-upstream is the usual target for `gh' commands."
-  (let* ((pair (magit-gh--repo-and-parent))
-         (repo (car pair))
-         (parent (cadr pair)))
-    (delete-dups
-     (delq nil (append (list parent repo)
-                       (magit-gh--remote-repo-candidates))))))
 
 (defun magit-gh--run-reporting (cmd success failure)
   "Run shell CMD in `default-directory', reporting the result.
@@ -602,34 +570,6 @@ Prompts to choose between two distinct operations:
        (concat "gh repo sync " (shell-quote-argument nwo))
        (format "Synced remote fork %s" nwo)
        (format "Failed to sync remote fork %s" nwo))))))
-
-;;;###autoload
-(defun magit-gh-repo-set-default (repo)
-  "Set the default repository for `gh' commands in the current directory.
-REPO is an OWNER/REPO string, chosen interactively from the
-current repository, its fork parent, and the repository's GitHub
-remotes (or entered manually).  With a prefix argument, show the
-current default repository instead of setting it."
-  (interactive
-   (list (if current-prefix-arg
-             'view
-           (let ((candidates (magit-gh--default-repo-candidates)))
-             (completing-read "Set default repo: " candidates nil nil
-                              nil nil (car candidates))))))
-  (magit-gh--check-gh)
-  (let ((default-directory (magit-gh--repo-dir)))
-    (if (eq repo 'view)
-        (let ((out (string-trim
-                    (shell-command-to-string "gh repo set-default --view 2>&1"))))
-          (message "%s" (if (string-empty-p out)
-                            "No default repository set."
-                          (format "Default repository: %s" out))))
-      (when (or (null repo) (string-empty-p (string-trim repo)))
-        (user-error "No repository specified"))
-      (magit-gh--run-reporting
-       (concat "gh repo set-default " (shell-quote-argument (string-trim repo)))
-       (format "Default repository set to %s" repo)
-       (format "Failed to set default repository to %s" repo)))))
 
 (provide 'magit-gh-repo)
 
