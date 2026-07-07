@@ -131,13 +131,17 @@ property its rows are tagged with.")
   (unless (executable-find "gh")
     (user-error "`gh' not found; install from https://cli.github.com")))
 
-(defun magit-gh--async-fetch (cmd callback &optional errback)
-  "Run CMD asynchronously, parse JSON output, and call CALLBACK.
+(defun magit-gh--async-fetch (cmd dir callback &optional errback)
+  "Run CMD asynchronously in DIR, parse JSON output, and call CALLBACK.
 CMD is a shell command string (typically a gh CLI invocation).
+DIR is the working directory in which CMD runs; passing it
+explicitly keeps the process directory independent of whichever
+buffer happens to be current when the process starts.
 CALLBACK is called with the parsed JSON data on success.
 ERRBACK is called with an error message on failure; if nil,
 a message is displayed instead."
-  (let* ((output (list ""))
+  (let* ((default-directory dir)
+         (output (list ""))
          (stderr-buf (generate-new-buffer " *magit-gh-async-stderr*"))
          (coding-system-for-read 'utf-8-unix)
          (process-environment (cons "NO_COLOR=1" process-environment))

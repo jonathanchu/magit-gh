@@ -235,7 +235,7 @@ show the current repository."
       (setq magit-gh-repo-view--target target))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
-     cmd
+     cmd repo-dir
      (lambda (data) (magit-gh-repo-view--render buf data))
      (lambda (msg)
        (when (buffer-live-p buf)
@@ -401,7 +401,7 @@ does not set a limit, `magit-gh-repo-limit' is applied."
       (setq magit-gh-repo-list--args args))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
-     cmd
+     cmd repo-dir
      (lambda (data) (magit-gh-repo-list--render buf owner data))
      (lambda (msg)
        (when (buffer-live-p buf)

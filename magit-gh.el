@@ -500,7 +500,7 @@ STATE is one of \"open\", \"closed\", \"merged\", or \"all\" (default \"open\").
       (setq magit-gh-pr-list--state state)
       (magit-gh-pr-list--update-header-line))
     (pop-to-buffer buf)
-    (magit-gh--async-fetch cmd
+    (magit-gh--async-fetch cmd repo-dir
                            (lambda (data)
                              (magit-gh-pr-list--render buf state data)))))
 
@@ -560,14 +560,14 @@ and your recently merged PRs."
       (setq magit-gh-pr-status--repo-dir repo-dir))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
-     status-cmd
+     status-cmd repo-dir
      (lambda (data)
        (setcar results data)
        (cl-decf (car remaining))
        (when (= (car remaining) 0)
          (magit-gh-pr-status--render buf (nth 0 results) (nth 1 results)))))
     (magit-gh--async-fetch
-     merged-cmd
+     merged-cmd repo-dir
      (lambda (data)
        (setcar (cdr results) data)
        (cl-decf (car remaining))
@@ -801,7 +801,7 @@ If NUMBER is nil, show checks for the current branch's PR."
       (setq magit-gh-pr-checks--pr-number number))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
-     cmd
+     cmd repo-dir
      (lambda (data)
        (magit-gh-pr-checks--render buf number data))
      (lambda (msg)
@@ -975,7 +975,7 @@ If NUMBER is nil, show checks for the current branch's PR."
       (setq magit-gh-actions--repo-dir repo-dir))
     (pop-to-buffer buf)
     (magit-gh--async-fetch
-     cmd
+     cmd repo-dir
      (lambda (data)
        (magit-gh-actions--render buf data))
      (lambda (msg)
