@@ -462,28 +462,41 @@ The owner defaults to the owner of the current repository."
 
 ;;; Repo Action Commands
 
-(defun magit-gh-repo-fork-execute (args)
-  "Fork the current repository on GitHub.
-ARGS are the `gh repo fork' switches and options collected by the
-`magit-gh-repo-fork' transient.  By default the fork is created on
-GitHub without cloning it or modifying your local git remotes.
-Enabling \"Add a git remote\" sets the fork as the `origin' remote
-and renames any existing `origin' to `upstream'."
-  (interactive (list (transient-args 'magit-gh-repo-fork)))
+(defun magit-gh-repo-fork--heading ()
+  "Return a heading naming the repository the fork transient targets.
+Uses the transient scope (the repository directory captured when
+the transient was invoked) so the target is visible before forking."
+  (format "Fork repository in %s"
+          (abbreviate-file-name (or (transient-scope) default-directory))))
+
+(defun magit-gh-repo-fork-execute (dir args)
+  "Fork the repository in DIR on GitHub.
+DIR is the repository directory captured as the `magit-gh-repo-fork'
+transient scope; ARGS are the collected `gh repo fork' switches and
+options.  Prompts for confirmation, naming the repository, before
+creating the fork.  By default the fork is created on GitHub without
+cloning it or modifying your local git remotes.  Enabling \"Add a git
+remote\" sets the fork as the `origin' remote and renames any existing
+`origin' to `upstream'."
+  (interactive (list (transient-scope) (transient-args 'magit-gh-repo-fork)))
   (magit-gh--check-gh)
-  (let ((default-directory (magit-gh--repo-dir)))
-    (message "Forking the current repository...")
+  (let* ((default-directory (or dir (magit-gh--repo-dir)))
+         (nwo (car (magit-gh--repo-and-parent)))
+         (label (or nwo (abbreviate-file-name default-directory))))
+    (unless (yes-or-no-p (format "Fork %s? " label))
+      (user-error "Fork aborted"))
+    (message "Forking %s..." label)
     (magit-gh--run-reporting
      (string-join (cons "gh repo fork"
                         (mapcar #'shell-quote-argument args))
                   " ")
-     "Forked the current repository"
-     "Failed to fork the current repository")))
+     (format "Forked %s" label)
+     (format "Failed to fork %s" label))))
 
 ;;;###autoload (autoload 'magit-gh-repo-fork "magit-gh-repo" nil t)
 (transient-define-prefix magit-gh-repo-fork ()
   "Fork the current repository on GitHub."
-  ["Fork options"
+  [:description magit-gh-repo-fork--heading
    ("-c" "Clone the fork" "--clone")
    ("-r" "Add a git remote" "--remote")
    ("-n" "Remote name" "--remote-name=")
@@ -491,7 +504,10 @@ and renames any existing `origin' to `upstream'."
    ("-o" "Create the fork in an organization" "--org=")
    ("-b" "Only include the default branch" "--default-branch-only")]
   ["Action"
-   ("f" "Fork" magit-gh-repo-fork-execute)])
+   ("f" "Fork" magit-gh-repo-fork-execute)]
+  (interactive)
+  (transient-setup 'magit-gh-repo-fork nil nil
+                   :scope (magit-gh--repo-dir)))
 
 (transient-define-argument magit-gh-repo-create--visibility ()
   "Visibility switch for the `magit-gh-repo-create' transient."
