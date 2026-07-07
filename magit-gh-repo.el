@@ -104,9 +104,11 @@ CMD's standard output and error are collected in the
 *magit-gh-output* buffer.  On a zero exit code show SUCCESS,
 appending any message CMD emitted; on a non-zero exit signal a
 `user-error' built from FAILURE and that output."
-  (let* ((buf (get-buffer-create "*magit-gh-output*"))
+  (let* ((dir default-directory)
+         (buf (get-buffer-create "*magit-gh-output*"))
          (exit (with-current-buffer buf
-                 (let ((inhibit-read-only t))
+                 (let ((inhibit-read-only t)
+                       (default-directory dir))
                    (erase-buffer)
                    (call-process-shell-command cmd nil buf nil))))
          (output (with-current-buffer buf (string-trim (buffer-string)))))
