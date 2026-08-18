@@ -1,6 +1,10 @@
 # Compiled
 *.elc
 
+# Generated package files
+*-autoloads.el
+*-pkg.el
+
 # Packaging
 .cask/
 .eask/

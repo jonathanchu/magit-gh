@@ -15,6 +15,9 @@ Features include:
   - Checkout a PR branch with a single keystroke
   - Create a new pull request (opens GitHub in the browser)
   - View a PR in the browser
+  - View repository information in a dedicated buffer
+  - List an owner's repositories
+  - Fork, create, and sync repositories
 
 * Why not Forge?
 
@@ -97,7 +100,7 @@ To increase the number of PRs fetched (default 30):
   (magit-gh-pr-limit 50))
 #+end_src
 
-The Transient menu is organized into Pull Request commands:
+The Transient menu is organized into Pull Request and Repository commands:
 
 #+begin_example
 magit-gh
@@ -108,10 +111,17 @@ magit-gh
 │   ├── d  Diff PR
 │   ├── k  PR checks/CI status
 │   └── a  Actions (workflow runs)
-└── Actions
-    ├── c  Checkout PR
-    ├── w  Create PR (web)
-    └── v  View PR in browser
+├── Actions
+│   ├── c  Checkout PR
+│   ├── w  Create PR (web)
+│   └── v  View PR in browser
+└── Repository
+    ├── i  View repo info
+    ├── L  List repos
+    ├── o  Open repo in browser
+    ├── f  Fork repo
+    ├── n  New repo
+    └── S  Sync repo
 #+end_example
 
 ** PR List Buffer
@@ -171,16 +181,59 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
 | =g= | Refresh the runs        |
 | =q= | Close the buffer        |
 
+** Repository Commands
+
+The *Repository* group wraps the ~gh repo~ subcommands. Commands that can act on a repository other than the current one accept an optional =[owner/]repo= argument: invoke them with a prefix argument (=C-u=) to be prompted for a target, or run them directly to act on the current repository.
+
+| Key | Action                                                        |
+|-----+---------------------------------------------------------------|
+| =i= | View repo info (=C-u= for another repo)                       |
+| =L= | List an owner's repositories                                  |
+| =o= | Open the repo in the browser (=C-u= for another repo)         |
+| =f= | Fork the current repo (opens a transient with fork options)   |
+| =n= | Create a new repository (opens a transient with repo options) |
+| =S= | Sync a repository (choose: local clone or remote fork)        |
+
+Notes:
+
+- *View repo info* (~i~) opens a dedicated buffer showing visibility, default branch, stars, forks, upstream (for forks), topics, and URLs.
+- *List repos* (~L~) opens a transient menu for listing repositories. Toggle filters for visibility, primary language, topic, forks vs. sources, archived state, and the result limit, then press the action key to read the owner (defaulting to the current repository's owner) and display the results.
+- *Fork* (~f~) opens a transient menu for forking the current repository on GitHub. The menu heading shows the repository directory being forked, and forking asks for confirmation (naming the repository) first, so you always know which repository is targeted. By default the fork is created without cloning it or modifying your local git remotes. Toggle options to clone the fork, add a git remote (=--remote=, which sets the fork as =origin= and renames any existing =origin= to =upstream=), rename the fork, create it in an organization, or include only the default branch.
+- *New repo* (~n~) opens a transient menu for creating a repository. Choose the visibility (defaulting to private) and optionally set a description, home page, gitignore template, or license, and whether to clone the new repository or add a README. Pressing the action key prompts for the repository name (=owner/name= or just =name=).
+- *Sync* (~S~) prompts to choose between two distinct operations, rather than overloading a single argument like ~gh repo sync~: *sync local clone from upstream*, which fast-forwards your local clone's default branch from its parent and touches nothing on GitHub; and *sync remote fork on GitHub*, which updates your fork's default branch on GitHub from its parent via the API. The remote sync needs push access, and the =workflow= token scope when the upstream changes include workflow files (run =gh auth refresh -s workflow=).
+
+*** Repo Info Buffer
+
+| Key   | Action                            |
+|-------+-----------------------------------|
+| =v=   | Open the repository in browser    |
+| =o=   | Open the repository in browser    |
+| =g=   | Refresh the repository info       |
+| =q=   | Close the buffer                  |
+
+*** Repo List Buffer
+
+| Key   | Action                              |
+|-------+-------------------------------------|
+| =n=   | Move to next repository             |
+| =p=   | Move to previous repository         |
+| =RET= | View info for the repository at point |
+| =v=   | Open the repository at point in browser |
+| =o=   | Open the repository at point in browser |
+| =g=   | Refresh the repository list         |
+| =q=   | Close the buffer                    |
+
 ** Demo
 
 [[https://raw.githubusercontent.com/jonathanchu/magit-gh/refs/heads/main/screenshots/20260221_magit_gh_demo.gif]]
 
 ** Customization
 
-| Variable            | Default | Description                             |
-|---------------------+---------+-----------------------------------------|
-| =magit-gh-key=      | =,=     | Key to bind ~magit-gh~ in Magit buffers |
-| =magit-gh-pr-limit= | =30=    | Maximum number of PRs to fetch          |
+| Variable              | Default | Description                              |
+|-----------------------+---------+------------------------------------------|
+| =magit-gh-key=        | =,=     | Key to bind ~magit-gh~ in Magit buffers  |
+| =magit-gh-pr-limit=   | =30=    | Maximum number of PRs to fetch           |
+| =magit-gh-repo-limit= | =30=    | Maximum number of repositories to fetch  |
 
 * Feature Status
 
@@ -193,6 +246,9 @@ View GitHub Actions workflow runs (~a~) in a dedicated buffer. Shows recent runs
   - [X] PR checks/CI status
   - [X] Create a new pull request
   - [X] View and monitor workflow runs
+  - [X] View repository information
+  - [X] List an owner's repositories
+  - [X] Fork, create, and sync repositories
 
 *Note:* /This feature set represents the 1.0 release. I consider the current scope complete and intentionally avoid overlapping with [[https://github.com/magit/forge][Forge]] features. If you have ideas for additional functionality, please open an issue to discuss./
 
