@@ -204,24 +204,24 @@ Notes:
 
 *** Repo Info Buffer
 
-| Key   | Action                            |
-|-------+-----------------------------------|
-| =v=   | Open the repository in browser    |
-| =o=   | Open the repository in browser    |
-| =g=   | Refresh the repository info       |
-| =q=   | Close the buffer                  |
+| Key | Action                         |
+|-----+--------------------------------|
+| =v= | Open the repository in browser |
+| =o= | Open the repository in browser |
+| =g= | Refresh the repository info    |
+| =q= | Close the buffer               |
 
 *** Repo List Buffer
 
-| Key   | Action                              |
-|-------+-------------------------------------|
-| =n=   | Move to next repository             |
-| =p=   | Move to previous repository         |
-| =RET= | View info for the repository at point |
+| Key   | Action                                  |
+|-------+-----------------------------------------|
+| =n=   | Move to next repository                 |
+| =p=   | Move to previous repository             |
+| =RET= | View info for the repository at point   |
 | =v=   | Open the repository at point in browser |
 | =o=   | Open the repository at point in browser |
-| =g=   | Refresh the repository list         |
-| =q=   | Close the buffer                    |
+| =g=   | Refresh the repository list             |
+| =q=   | Close the buffer                        |
 
 ** Demo
 
